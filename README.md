@@ -4,17 +4,19 @@ Home Assistant based car-audio DSP tuning, measurement and calibration toolkit.
 
 KCC SoundLab is being built around the current KCC car-audio setup with **Goldhorn P2 DSP Pro** as the first supported DSP. The long-term goal is a guided tuning environment for channel setup, crossover, time alignment, measurement, presets and EQ.
 
-> **v0.1 is a tuning assistant.** It stores and calculates tuning values in Home Assistant, but it does not yet write settings directly to the Goldhorn DSP.
+> **v0.2 is a tuning assistant.** It stores and calculates tuning values inside the integration, but it does not yet write settings directly to the Goldhorn DSP.
 
-## v0.1 features
+## v0.2 features
 
 - Configure a Goldhorn P2 DSP Pro workspace from the Home Assistant UI.
 - Model 1–12 active outputs.
-- Store per-output distance, gain, phase, polarity, HPF and LPF settings.
+- Store per-output distance, gain, phase, polarity, HPF and LPF settings internally in KCC SoundLab.
 - Automatically calculate time-alignment delay from the furthest speaker.
-- Expose reference output, path difference and calculated delay as Home Assistant sensors.
 - Store a SoundLab preset selection: Driver SQ, Front Both, Bass Mode or Tuning.
 - Open **KCC SoundLab directly from the Home Assistant sidebar**.
+- Keep Home Assistant clean with only two useful status entities:
+  - **Status** – workspace state, preset and active-output count.
+  - **Time alignment reference** – current furthest/reference output.
 - Responsive dark SoundLab interface with three initial workspaces:
   - **Overview** – system summary, channel map, presets and delay overview.
   - **Channels** – selected-channel controls and crossover graph.
@@ -31,6 +33,10 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 5. Go to **Settings → Devices & services → Add integration** and search for **KCC SoundLab**.
 6. Select **Goldhorn P2 DSP Pro**, enter the vehicle name and choose the number of active outputs.
 7. After setup, open **KCC SoundLab** from the Home Assistant sidebar.
+
+### Updating from v0.1
+
+Updating to v0.2 automatically removes the old per-channel SoundLab number/select/delay entities from Home Assistant's entity registry. The saved tuning workspace is kept in the integration storage and is reused by the new internal workspace API.
 
 ### Manual installation
 
@@ -62,7 +68,7 @@ The 34.3 cm/ms constant corresponds to approximately 343 m/s speed of sound at 2
 
 ## Frontend architecture
 
-The SoundLab UI is bundled with the integration and registered as a Home Assistant custom sidebar panel. It uses Home Assistant entities and services for live editing and does not require a separate Lovelace resource.
+The SoundLab UI is bundled with the integration and registered as a Home Assistant custom sidebar panel. From v0.2 the panel reads and writes the persistent tuning workspace through a small KCC SoundLab WebSocket API instead of creating a Home Assistant entity for every DSP parameter. This keeps the normal entity/device views clean while preserving live editing and persistence.
 
 ## Planned next steps
 

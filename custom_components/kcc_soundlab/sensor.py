@@ -1,10 +1,9 @@
-"""Calculated sensor entities for KCC SoundLab."""
+"""Compact status sensors for KCC SoundLab."""
 
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -18,65 +17,44 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    """Set up only the useful Home Assistant status entities."""
     state: KCCDSPState = hass.data[DOMAIN][entry.entry_id]
-    entities: list[SensorEntity] = [KCCReferenceSensor(state, entry)]
-    for index in range(state.channel_count):
-        entities.extend(
-            [
-                KCCDelaySensor(state, entry, index),
-                KCCPathDeltaSensor(state, entry, index),
-            ]
-        )
-    async_add_entities(entities)
+    async_add_entities(
+        [
+            KCCStatusSensor(state, entry),
+            KCCReferenceSensor(state, entry),
+        ]
+    )
 
 
-class _ChannelSensor(KCCDSPBaseEntity, SensorEntity):
-    def __init__(self, state: KCCDSPState, entry: ConfigEntry, index: int) -> None:
+class KCCStatusSensor(KCCDSPBaseEntity, SensorEntity):
+    """Expose a compact SoundLab workspace status."""
+
+    _attr_icon = "mdi:tune-vertical"
+
+    def __init__(self, state: KCCDSPState, entry: ConfigEntry) -> None:
         super().__init__(
             state,
             entry.title,
             entry.data[CONF_DSP_MODEL],
             entry.data[CONF_VEHICLE],
         )
-        self.index = index
-
-
-class KCCDelaySensor(_ChannelSensor):
-    """Calculated delay relative to the furthest speaker."""
-
-    _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
-    _attr_icon = "mdi:timer-sand"
-
-    def __init__(self, state: KCCDSPState, entry: ConfigEntry, index: int) -> None:
-        super().__init__(state, entry, index)
-        channel = state.channel(index)
-        self._kcc_key = "calculated_delay"
-        self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_calculated_delay"
-        self._attr_suggested_object_id = f"kcc_soundlab_{channel['id']}_calculated_delay"
-        self._attr_name = f"{channel['output']} Calculated delay"
+        self._attr_unique_id = f"{entry.entry_id}_status"
+        self._attr_suggested_object_id = "kcc_soundlab_status"
+        self._attr_name = "Status"
 
     @property
-    def native_value(self) -> float:
-        return round(self._soundlab_state.delay_for(self.index), 3)
-
-
-class KCCPathDeltaSensor(_ChannelSensor):
-    """Calculated path difference relative to the furthest speaker."""
-
-    _attr_native_unit_of_measurement = UnitOfLength.CENTIMETERS
-    _attr_icon = "mdi:ruler"
-
-    def __init__(self, state: KCCDSPState, entry: ConfigEntry, index: int) -> None:
-        super().__init__(state, entry, index)
-        channel = state.channel(index)
-        self._kcc_key = "path_delta"
-        self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_path_delta"
-        self._attr_suggested_object_id = f"kcc_soundlab_{channel['id']}_path_delta"
-        self._attr_name = f"{channel['output']} Path difference"
+    def native_value(self) -> str:
+        return "Ready"
 
     @property
-    def native_value(self) -> float:
-        return round(self._soundlab_state.path_delta_for(self.index), 1)
+    def extra_state_attributes(self) -> dict[str, int | str]:
+        return {
+            **super().extra_state_attributes,
+            "preset": self._soundlab_state.preset,
+            "active_outputs": self._soundlab_state.channel_count,
+            "goldhorn_link": "manual",
+        }
 
 
 class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
@@ -91,7 +69,6 @@ class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
             entry.data[CONF_DSP_MODEL],
             entry.data[CONF_VEHICLE],
         )
-        self._kcc_key = "reference_channel"
         self._attr_unique_id = f"{entry.entry_id}_reference_channel"
         self._attr_suggested_object_id = "kcc_soundlab_reference_channel"
         self._attr_name = "Time alignment reference"

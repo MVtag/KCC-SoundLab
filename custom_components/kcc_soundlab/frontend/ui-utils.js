@@ -8,52 +8,21 @@ export const FILTERS=["Butterworth","Linkwitz-Riley","Bessel"];
 export const SLOPES=[6,12,18,24,30,36,42,48].map(v=>`${v} dB/oct`);
 export const PRESETS=["Driver SQ","Front Both","Bass Mode","Tuning"];
 export const letter=i=>String.fromCharCode(65+i);
-export const slug=i=>`out_${letter(i).toLowerCase()}`;
 export const profile=i=>PROFILE[i]||{speaker:`OUT ${letter(i)}`,role:"DSP output"};
-export const stateObj=(hass,id)=>id?hass?.states?.[id]||null:null;
+const token=(index,field)=>`${index}|${field}`;
+const n=(value,fallback=0)=>{const v=Number(value);return Number.isFinite(v)?v:fallback};
 
-function metaMatch(state,entryId,key,channelId=null){
- const a=state?.attributes||{};
- if(entryId&&a.kcc_soundlab_entry_id!==entryId)return false;
- if(key&&a.kcc_soundlab_key!==key)return false;
- if(channelId&&a.kcc_soundlab_channel_id!==channelId)return false;
- return Boolean(a.kcc_soundlab_entry_id);
-}
-
-export function findEntity(hass,domain,index,key,label="",entryId=""){
- const channelId=slug(index);
- const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith(`${domain}.`)&&metaMatch(hass.states[id],entryId,key,channelId));
- if(byMeta)return byMeta;
- const expected=`${domain}.kcc_soundlab_${channelId}_${key}`;if(stateObj(hass,expected))return expected;
- const out=`out ${letter(index).toLowerCase()}`,words=key.replaceAll("_"," ").toLowerCase(),alt=label.toLowerCase();
- return Object.keys(hass?.states||{}).find(id=>{if(!id.startsWith(`${domain}.`))return false;const n=String(hass.states[id].attributes?.friendly_name||"").toLowerCase();return n.includes(out)&&(n.includes(words)||(alt&&n.includes(alt)));})||null;
-}
-export function findPreset(hass,entryId=""){
- const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith("select.")&&metaMatch(hass.states[id],entryId,"preset"));
- if(byMeta)return byMeta;
- if(stateObj(hass,"select.kcc_soundlab_preset"))return "select.kcc_soundlab_preset";
- return Object.keys(hass?.states||{}).find(id=>id.startsWith("select.")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().includes("soundlab")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().endsWith("preset"))||null;
-}
-export function findReference(hass,entryId=""){
- const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith("sensor.")&&metaMatch(hass.states[id],entryId,"reference_channel"));
- if(byMeta)return byMeta;
- if(stateObj(hass,"sensor.kcc_soundlab_reference_channel"))return "sensor.kcc_soundlab_reference_channel";
- return Object.keys(hass?.states||{}).find(id=>id.startsWith("sensor.")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().includes("time alignment reference"))||null;
-}
-export function num(hass,id,fallback=0){const s=stateObj(hass,id);if(!s||["unknown","unavailable"].includes(s.state))return fallback;const v=Number(s.state);return Number.isFinite(v)?v:fallback;}
-export function text(hass,id,fallback="—"){const s=stateObj(hass,id);return(!s||["unknown","unavailable"].includes(s.state))?fallback:String(s.state);}
-export function channelData(hass,index,entryId=""){
+export function channelData(raw,index){
+ const p=profile(index),c=raw||{},ready=Boolean(raw);
  const ids={
-  distance:findEntity(hass,"number",index,"distance","distance",entryId),gain:findEntity(hass,"number",index,"gain","gain",entryId),phase:findEntity(hass,"number",index,"phase","phase",entryId),
-  hpf:findEntity(hass,"number",index,"hpf_frequency","hpf frequency",entryId),lpf:findEntity(hass,"number",index,"lpf_frequency","lpf frequency",entryId),
-  polarity:findEntity(hass,"select",index,"polarity","polarity",entryId),hpfType:findEntity(hass,"select",index,"hpf_type","hpf type",entryId),hpfSlope:findEntity(hass,"select",index,"hpf_slope","hpf slope",entryId),
-  lpfType:findEntity(hass,"select",index,"lpf_type","lpf type",entryId),lpfSlope:findEntity(hass,"select",index,"lpf_slope","lpf slope",entryId),
-  delay:findEntity(hass,"sensor",index,"calculated_delay","calculated delay",entryId),path:findEntity(hass,"sensor",index,"path_delta","path difference",entryId)
+  distance:ready?token(index,"distance_cm"):null,gain:ready?token(index,"gain_db"):null,phase:ready?token(index,"phase_deg"):null,
+  hpf:ready?token(index,"hpf_hz"):null,lpf:ready?token(index,"lpf_hz"):null,polarity:ready?token(index,"polarity"):null,
+  hpfType:ready?token(index,"hpf_type"):null,hpfSlope:ready?token(index,"hpf_slope"):null,lpfType:ready?token(index,"lpf_type"):null,lpfSlope:ready?token(index,"lpf_slope"):null
  };
- const p=profile(index);return{index,output:`OUT ${letter(index)}`,color:COLORS[index%COLORS.length],speaker:p.speaker,role:p.role,ids,
-  distance:num(hass,ids.distance),gain:num(hass,ids.gain),phase:num(hass,ids.phase),hpf:num(hass,ids.hpf,20),lpf:num(hass,ids.lpf,20000),
-  polarity:text(hass,ids.polarity,"Normal"),hpfType:text(hass,ids.hpfType,"Linkwitz-Riley"),hpfSlope:text(hass,ids.hpfSlope,"24 dB/oct"),
-  lpfType:text(hass,ids.lpfType,"Linkwitz-Riley"),lpfSlope:text(hass,ids.lpfSlope,"24 dB/oct"),delay:num(hass,ids.delay),path:num(hass,ids.path)};
+ return{index,output:String(c.output||`OUT ${letter(index)}`),color:COLORS[index%COLORS.length],speaker:p.speaker,role:p.role,ids,
+  distance:n(c.distance_cm),gain:n(c.gain_db),phase:n(c.phase_deg),hpf:n(c.hpf_hz,20),lpf:n(c.lpf_hz,20000),
+  polarity:String(c.polarity||"Normal"),hpfType:String(c.hpf_type||"Linkwitz-Riley"),hpfSlope:String(c.hpf_slope||"24 dB/oct"),
+  lpfType:String(c.lpf_type||"Linkwitz-Riley"),lpfSlope:String(c.lpf_slope||"24 dB/oct"),delay:n(c.delay_ms),path:n(c.path_delta_cm)};
 }
 export const formatHz=v=>v>=1000?`${Number.isInteger(v/1000)?v/1000:(v/1000).toFixed(1)} kHz`:`${Math.round(v)} Hz`;
 export function carMap(channels,selected,compact=false){
