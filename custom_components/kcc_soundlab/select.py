@@ -92,13 +92,13 @@ class KCCPresetSelect(KCCDSPBaseEntity, SelectEntity):
 
     @property
     def current_option(self) -> str:
-        return self.state.preset
+        return self._soundlab_state.preset
 
     async def async_select_option(self, option: str) -> None:
         if option not in PRESETS:
             return
-        self.state.preset = option
-        self.state.notify()
+        self._soundlab_state.preset = option
+        self._soundlab_state.notify()
 
 
 class KCCChannelSelect(KCCDSPBaseEntity, SelectEntity):
@@ -130,8 +130,10 @@ class KCCChannelSelect(KCCDSPBaseEntity, SelectEntity):
 
     @property
     def current_option(self) -> str:
-        return str(self.state.channel(self.index)[self.entity_description.field])
+        return str(
+            self._soundlab_state.channel(self.index)[self.entity_description.field]
+        )
 
     async def async_select_option(self, option: str) -> None:
-        self.state.channel(self.index)[self.entity_description.field] = option
-        self.state.notify()
+        self._soundlab_state.channel(self.index)[self.entity_description.field] = option
+        self._soundlab_state.notify()

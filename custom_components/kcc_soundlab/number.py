@@ -114,12 +114,19 @@ class KCCChannelNumber(KCCDSPBaseEntity, NumberEntity):
         self._attr_suggested_object_id = (
             f"kcc_soundlab_{channel['id']}_{description.key}"
         )
-        self._attr_name = f"{channel['output']} {description.name or description.key.replace('_', ' ').title()}"
+        self._attr_name = (
+            f"{channel['output']} "
+            f"{description.name or description.key.replace('_', ' ').title()}"
+        )
 
     @property
     def native_value(self) -> float:
-        return float(self.state.channel(self.index)[self.entity_description.field])
+        return float(
+            self._soundlab_state.channel(self.index)[self.entity_description.field]
+        )
 
     async def async_set_native_value(self, value: float) -> None:
-        self.state.channel(self.index)[self.entity_description.field] = float(value)
-        self.state.notify()
+        self._soundlab_state.channel(self.index)[self.entity_description.field] = float(
+            value
+        )
+        self._soundlab_state.notify()
