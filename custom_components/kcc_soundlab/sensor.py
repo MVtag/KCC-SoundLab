@@ -51,6 +51,7 @@ class KCCDelaySensor(_ChannelSensor):
         super().__init__(state, entry, index)
         channel = state.channel(index)
         self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_calculated_delay"
+        self._attr_suggested_object_id = f"kcc_soundlab_{channel['id']}_calculated_delay"
         self._attr_name = f"{channel['output']} Calculated delay"
 
     @property
@@ -68,6 +69,7 @@ class KCCPathDeltaSensor(_ChannelSensor):
         super().__init__(state, entry, index)
         channel = state.channel(index)
         self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_path_delta"
+        self._attr_suggested_object_id = f"kcc_soundlab_{channel['id']}_path_delta"
         self._attr_name = f"{channel['output']} Path difference"
 
     @property
@@ -88,6 +90,7 @@ class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
             entry.data[CONF_VEHICLE],
         )
         self._attr_unique_id = f"{entry.entry_id}_reference_channel"
+        self._attr_suggested_object_id = "kcc_soundlab_reference_channel"
         self._attr_name = "Time alignment reference"
 
     @property
