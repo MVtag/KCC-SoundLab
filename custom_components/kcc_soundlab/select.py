@@ -21,6 +21,7 @@ class KCCSelectDescription(SelectEntityDescription):
 
 SLOPES = [f"{value} dB/oct" for value in (6, 12, 18, 24, 30, 36, 42, 48)]
 FILTERS = ["Butterworth", "Linkwitz-Riley", "Bessel"]
+PRESETS = ["Driver SQ", "Front Both", "Bass Mode", "Tuning"]
 
 DESCRIPTIONS = (
     KCCSelectDescription(
@@ -62,11 +63,41 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     state: KCCDSPState = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
+    entities: list[SelectEntity] = [KCCPresetSelect(state, entry)]
+    entities.extend(
         KCCChannelSelect(state, entry, index, description)
         for index in range(state.channel_count)
         for description in DESCRIPTIONS
     )
+    async_add_entities(entities)
+
+
+class KCCPresetSelect(KCCDSPBaseEntity, SelectEntity):
+    """Select the active SoundLab tuning preset."""
+
+    _attr_options = PRESETS
+    _attr_icon = "mdi:star-outline"
+
+    def __init__(self, state: KCCDSPState, entry: ConfigEntry) -> None:
+        super().__init__(
+            state,
+            entry.title,
+            entry.data[CONF_DSP_MODEL],
+            entry.data[CONF_VEHICLE],
+        )
+        self._attr_unique_id = f"{entry.entry_id}_preset"
+        self._attr_suggested_object_id = "kcc_soundlab_preset"
+        self._attr_name = "Preset"
+
+    @property
+    def current_option(self) -> str:
+        return self.state.preset
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in PRESETS:
+            return
+        self.state.preset = option
+        self.state.notify()
 
 
 class KCCChannelSelect(KCCDSPBaseEntity, SelectEntity):
@@ -91,6 +122,9 @@ class KCCChannelSelect(KCCDSPBaseEntity, SelectEntity):
         self.entity_description = description
         channel = state.channel(index)
         self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_{description.key}"
+        self._attr_suggested_object_id = (
+            f"kcc_soundlab_{channel['id']}_{description.key}"
+        )
         self._attr_name = f"{channel['output']} {description.key.replace('_', ' ').title()}"
 
     @property
