@@ -1,0 +1,43 @@
+name: Validate KCC SoundLab
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate Python syntax
+        run: python -m compileall -q custom_components/kcc_soundlab
+
+      - name: Validate JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in Path("custom_components/kcc_soundlab").rglob("*.json"):
+              with path.open(encoding="utf-8") as handle:
+                  json.load(handle)
+              print(f"OK {path}")
+          with Path("hacs.json").open(encoding="utf-8") as handle:
+              json.load(handle)
+          print("OK hacs.json")
+          PY
+
+      - name: Validate frontend JavaScript
+        run: |
+          node --check custom_components/kcc_soundlab/frontend/kcc-soundlab-panel.js
+          node --check custom_components/kcc_soundlab/frontend/ui-utils.js
+          node --check custom_components/kcc_soundlab/frontend/ui-views.js
