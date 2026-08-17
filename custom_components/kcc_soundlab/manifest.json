@@ -7,5 +7,6 @@
   "documentation": "https://github.com/MVtag/KCC-SoundLab",
   "issue_tracker": "https://github.com/MVtag/KCC-SoundLab/issues",
   "codeowners": ["@MVtag"],
-  "iot_class": "calculated"
+  "iot_class": "calculated",
+  "dependencies": ["frontend", "http"]
 }
