@@ -11,28 +11,44 @@ export const letter=i=>String.fromCharCode(65+i);
 export const slug=i=>`out_${letter(i).toLowerCase()}`;
 export const profile=i=>PROFILE[i]||{speaker:`OUT ${letter(i)}`,role:"DSP output"};
 export const stateObj=(hass,id)=>id?hass?.states?.[id]||null:null;
-export function findEntity(hass,domain,index,key,label=""){
- const expected=`${domain}.kcc_soundlab_${slug(index)}_${key}`; if(stateObj(hass,expected)) return expected;
- const out=`out ${letter(index).toLowerCase()}`, words=key.replaceAll("_"," ").toLowerCase(), alt=label.toLowerCase();
+
+function metaMatch(state,entryId,key,channelId=null){
+ const a=state?.attributes||{};
+ if(entryId&&a.kcc_soundlab_entry_id!==entryId)return false;
+ if(key&&a.kcc_soundlab_key!==key)return false;
+ if(channelId&&a.kcc_soundlab_channel_id!==channelId)return false;
+ return Boolean(a.kcc_soundlab_entry_id);
+}
+
+export function findEntity(hass,domain,index,key,label="",entryId=""){
+ const channelId=slug(index);
+ const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith(`${domain}.`)&&metaMatch(hass.states[id],entryId,key,channelId));
+ if(byMeta)return byMeta;
+ const expected=`${domain}.kcc_soundlab_${channelId}_${key}`;if(stateObj(hass,expected))return expected;
+ const out=`out ${letter(index).toLowerCase()}`,words=key.replaceAll("_"," ").toLowerCase(),alt=label.toLowerCase();
  return Object.keys(hass?.states||{}).find(id=>{if(!id.startsWith(`${domain}.`))return false;const n=String(hass.states[id].attributes?.friendly_name||"").toLowerCase();return n.includes(out)&&(n.includes(words)||(alt&&n.includes(alt)));})||null;
 }
-export function findPreset(hass){
+export function findPreset(hass,entryId=""){
+ const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith("select.")&&metaMatch(hass.states[id],entryId,"preset"));
+ if(byMeta)return byMeta;
  if(stateObj(hass,"select.kcc_soundlab_preset"))return "select.kcc_soundlab_preset";
  return Object.keys(hass?.states||{}).find(id=>id.startsWith("select.")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().includes("soundlab")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().endsWith("preset"))||null;
 }
-export function findReference(hass){
+export function findReference(hass,entryId=""){
+ const byMeta=Object.keys(hass?.states||{}).find(id=>id.startsWith("sensor.")&&metaMatch(hass.states[id],entryId,"reference_channel"));
+ if(byMeta)return byMeta;
  if(stateObj(hass,"sensor.kcc_soundlab_reference_channel"))return "sensor.kcc_soundlab_reference_channel";
  return Object.keys(hass?.states||{}).find(id=>id.startsWith("sensor.")&&String(hass.states[id].attributes?.friendly_name||"").toLowerCase().includes("time alignment reference"))||null;
 }
 export function num(hass,id,fallback=0){const s=stateObj(hass,id);if(!s||["unknown","unavailable"].includes(s.state))return fallback;const v=Number(s.state);return Number.isFinite(v)?v:fallback;}
 export function text(hass,id,fallback="—"){const s=stateObj(hass,id);return(!s||["unknown","unavailable"].includes(s.state))?fallback:String(s.state);}
-export function channelData(hass,index){
+export function channelData(hass,index,entryId=""){
  const ids={
-  distance:findEntity(hass,"number",index,"distance","distance"),gain:findEntity(hass,"number",index,"gain","gain"),phase:findEntity(hass,"number",index,"phase","phase"),
-  hpf:findEntity(hass,"number",index,"hpf_frequency","hpf frequency"),lpf:findEntity(hass,"number",index,"lpf_frequency","lpf frequency"),
-  polarity:findEntity(hass,"select",index,"polarity","polarity"),hpfType:findEntity(hass,"select",index,"hpf_type","hpf type"),hpfSlope:findEntity(hass,"select",index,"hpf_slope","hpf slope"),
-  lpfType:findEntity(hass,"select",index,"lpf_type","lpf type"),lpfSlope:findEntity(hass,"select",index,"lpf_slope","lpf slope"),
-  delay:findEntity(hass,"sensor",index,"calculated_delay","calculated delay"),path:findEntity(hass,"sensor",index,"path_delta","path difference")
+  distance:findEntity(hass,"number",index,"distance","distance",entryId),gain:findEntity(hass,"number",index,"gain","gain",entryId),phase:findEntity(hass,"number",index,"phase","phase",entryId),
+  hpf:findEntity(hass,"number",index,"hpf_frequency","hpf frequency",entryId),lpf:findEntity(hass,"number",index,"lpf_frequency","lpf frequency",entryId),
+  polarity:findEntity(hass,"select",index,"polarity","polarity",entryId),hpfType:findEntity(hass,"select",index,"hpf_type","hpf type",entryId),hpfSlope:findEntity(hass,"select",index,"hpf_slope","hpf slope",entryId),
+  lpfType:findEntity(hass,"select",index,"lpf_type","lpf type",entryId),lpfSlope:findEntity(hass,"select",index,"lpf_slope","lpf slope",entryId),
+  delay:findEntity(hass,"sensor",index,"calculated_delay","calculated delay",entryId),path:findEntity(hass,"sensor",index,"path_delta","path difference",entryId)
  };
  const p=profile(index);return{index,output:`OUT ${letter(index)}`,color:COLORS[index%COLORS.length],speaker:p.speaker,role:p.role,ids,
   distance:num(hass,ids.distance),gain:num(hass,ids.gain),phase:num(hass,ids.phase),hpf:num(hass,ids.hpf,20),lpf:num(hass,ids.lpf,20000),
