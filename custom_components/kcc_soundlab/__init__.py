@@ -9,6 +9,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.panel_custom import async_register_panel
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_CHANNEL_COUNT,
@@ -19,11 +20,33 @@ from .const import (
     VERSION,
 )
 from .model import KCCDSPState
+from .websocket_api import async_setup_websocket_api
 
 PANEL_URL = "kcc-soundlab"
 PANEL_ELEMENT = "kcc-soundlab-panel"
 STATIC_URL = "/kcc_soundlab_static"
 STATIC_REGISTERED = "static_registered"
+WEBSOCKET_REGISTERED = "websocket_registered"
+
+
+async def _async_cleanup_legacy_entities(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Remove v0.1 per-channel entities from the entity registry."""
+    registry = er.async_get(hass)
+    keep_unique_ids = {
+        f"{entry.entry_id}_status",
+        f"{entry.entry_id}_reference_channel",
+    }
+    for registry_entry in list(
+        er.async_entries_for_config_entry(registry, entry.entry_id)
+    ):
+        if registry_entry.platform != DOMAIN:
+            continue
+        if registry_entry.unique_id in keep_unique_ids:
+            continue
+        registry.async_remove(registry_entry.entity_id)
 
 
 async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -63,7 +86,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     state = KCCDSPState(hass, entry.entry_id, int(entry.data[CONF_CHANNEL_COUNT]))
     await state.async_load()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = state
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data[entry.entry_id] = state
+
+    if not domain_data.get(WEBSOCKET_REGISTERED):
+        async_setup_websocket_api(hass)
+        domain_data[WEBSOCKET_REGISTERED] = True
+
+    await _async_cleanup_legacy_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await _async_register_frontend(hass, entry)
     return True
