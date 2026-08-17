@@ -49,10 +49,21 @@ class KCCStatusSensor(KCCDSPBaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, int | str]:
+        channels = self._soundlab_state.channels
         return {
             **super().extra_state_attributes,
             "preset": self._soundlab_state.preset,
             "active_outputs": self._soundlab_state.channel_count,
+            "measured_outputs": sum(
+                float(item.get("distance_cm", 0.0)) > 0 for item in channels
+            ),
+            "polarity_verified": sum(
+                bool(item.get("polarity_verified")) for item in channels
+            ),
+            "alignment_verified": sum(
+                bool(item.get("alignment_verified")) for item in channels
+            ),
+            "tuning_snapshots": len(self._soundlab_state.snapshots),
             "goldhorn_link": "manual",
         }
 
@@ -84,5 +95,7 @@ class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
         return {
             **super().extra_state_attributes,
             "channel_name": str(channel["name"]),
+            "speaker": str(channel.get("speaker", channel["name"])),
+            "location": str(channel.get("location", "Other")),
             "distance_cm": round(self._soundlab_state.reference_distance_cm, 1),
         }
