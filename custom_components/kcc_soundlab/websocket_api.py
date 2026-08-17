@@ -54,7 +54,7 @@ def websocket_get_state(
         vol.Required("entry_id"): str,
         vol.Required("channel"): vol.Coerce(int),
         vol.Required("field"): str,
-        vol.Required("value"): vol.Any(str, int, float),
+        vol.Required("value"): vol.Any(bool, str, int, float),
     }
 )
 def websocket_set_channel(
@@ -100,8 +100,82 @@ def websocket_set_preset(
 
 
 @callback
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "kcc_soundlab/save_snapshot",
+        vol.Required("entry_id"): str,
+        vol.Required("name"): str,
+    }
+)
+def websocket_save_snapshot(
+    hass: HomeAssistant,
+    connection: Any,
+    msg: dict[str, Any],
+) -> None:
+    """Save the current workspace as a tuning snapshot."""
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    state.save_snapshot(msg["name"])
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "kcc_soundlab/restore_snapshot",
+        vol.Required("entry_id"): str,
+        vol.Required("snapshot_id"): str,
+    }
+)
+def websocket_restore_snapshot(
+    hass: HomeAssistant,
+    connection: Any,
+    msg: dict[str, Any],
+) -> None:
+    """Restore one tuning snapshot."""
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.restore_snapshot(msg["snapshot_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "kcc_soundlab/delete_snapshot",
+        vol.Required("entry_id"): str,
+        vol.Required("snapshot_id"): str,
+    }
+)
+def websocket_delete_snapshot(
+    hass: HomeAssistant,
+    connection: Any,
+    msg: dict[str, Any],
+) -> None:
+    """Delete one tuning snapshot."""
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.delete_snapshot(msg["snapshot_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
 def async_setup_websocket_api(hass: HomeAssistant) -> None:
     """Register SoundLab frontend commands."""
     websocket_api.async_register_command(hass, websocket_get_state)
     websocket_api.async_register_command(hass, websocket_set_channel)
     websocket_api.async_register_command(hass, websocket_set_preset)
+    websocket_api.async_register_command(hass, websocket_save_snapshot)
+    websocket_api.async_register_command(hass, websocket_restore_snapshot)
+    websocket_api.async_register_command(hass, websocket_delete_snapshot)
