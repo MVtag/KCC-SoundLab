@@ -85,6 +85,7 @@ class KCCPresetSelect(KCCDSPBaseEntity, SelectEntity):
             entry.data[CONF_DSP_MODEL],
             entry.data[CONF_VEHICLE],
         )
+        self._kcc_key = "preset"
         self._attr_unique_id = f"{entry.entry_id}_preset"
         self._attr_suggested_object_id = "kcc_soundlab_preset"
         self._attr_name = "Preset"

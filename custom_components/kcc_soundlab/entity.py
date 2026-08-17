@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
@@ -28,6 +30,26 @@ class KCCDSPBaseEntity(Entity):
             manufacturer="KCC / Goldhorn",
             model=dsp_model,
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose stable metadata so the SoundLab frontend never relies on entity IDs."""
+        attributes: dict[str, Any] = {
+            "kcc_soundlab_entry_id": self.state.entry_id,
+        }
+
+        index = getattr(self, "index", None)
+        if isinstance(index, int) and 0 <= index < self.state.channel_count:
+            channel = self.state.channel(index)
+            attributes["kcc_soundlab_channel_id"] = str(channel["id"])
+            attributes["kcc_soundlab_output"] = str(channel["output"])
+
+        description = getattr(self, "entity_description", None)
+        key = getattr(description, "key", None) or getattr(self, "_kcc_key", None)
+        if key:
+            attributes["kcc_soundlab_key"] = str(key)
+
+        return attributes
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
