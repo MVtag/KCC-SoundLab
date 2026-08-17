@@ -9,6 +9,8 @@ export const SLOPES=[6,12,18,24,30,36,42,48].map(v=>`${v} dB/oct`);
 export const PRESETS=["Driver SQ","Front Both","Bass Mode","Tuning"];
 export const ROLES=["Full-range","Tweeter","Midrange","Midbass","Woofer","Subwoofer","Center","Rear fill","DSP output"];
 export const LOCATIONS=["Front left dash","Front right dash","Front left door","Front right door","Center dash","Rear left","Rear right","Boot / trunk","Under seat","Other"];
+export const MEASUREMENT_POSITIONS=["Driver seat","Passenger seat","Center","Custom"];
+export const MEASUREMENT_POLARITY=["Unknown","Positive","Negative"];
 export const letter=i=>String.fromCharCode(65+i);
 export const profile=i=>PROFILE[i]||{speaker:`OUT ${letter(i)}`,role:"DSP output",location:"Other"};
 export const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));

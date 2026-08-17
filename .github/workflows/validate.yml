@@ -41,6 +41,7 @@ jobs:
           node --check custom_components/kcc_soundlab/frontend/kcc-soundlab-panel.js
           node --check custom_components/kcc_soundlab/frontend/ui-utils.js
           node --check custom_components/kcc_soundlab/frontend/ui-views.js
+          node --check custom_components/kcc_soundlab/frontend/ui-measurement.js
 
       - name: Validate frontend module cache keys
         run: |
