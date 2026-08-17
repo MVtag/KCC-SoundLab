@@ -57,7 +57,7 @@ class KCCDelaySensor(_ChannelSensor):
 
     @property
     def native_value(self) -> float:
-        return round(self.state.delay_for(self.index), 3)
+        return round(self._soundlab_state.delay_for(self.index), 3)
 
 
 class KCCPathDeltaSensor(_ChannelSensor):
@@ -76,7 +76,7 @@ class KCCPathDeltaSensor(_ChannelSensor):
 
     @property
     def native_value(self) -> float:
-        return round(self.state.path_delta_for(self.index), 1)
+        return round(self._soundlab_state.path_delta_for(self.index), 1)
 
 
 class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
@@ -98,14 +98,14 @@ class KCCReferenceSensor(KCCDSPBaseEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        channel = self.state.channel(self.state.reference_index)
+        channel = self._soundlab_state.channel(self._soundlab_state.reference_index)
         return str(channel["output"])
 
     @property
     def extra_state_attributes(self) -> dict[str, float | str]:
-        channel = self.state.channel(self.state.reference_index)
+        channel = self._soundlab_state.channel(self._soundlab_state.reference_index)
         return {
             **super().extra_state_attributes,
             "channel_name": str(channel["name"]),
-            "distance_cm": round(self.state.reference_distance_cm, 1),
+            "distance_cm": round(self._soundlab_state.reference_distance_cm, 1),
         }
