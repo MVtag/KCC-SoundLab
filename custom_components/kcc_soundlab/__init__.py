@@ -53,7 +53,6 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
             "channel_count": int(entry.data[CONF_CHANNEL_COUNT]),
             "direct_control": False,
         },
-        handle_safe_area=True,
     )
 
 
