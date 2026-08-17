@@ -22,39 +22,39 @@ from .model import KCCDSPState
 PANEL_URL = "kcc-soundlab"
 PANEL_ELEMENT = "kcc-soundlab-panel"
 STATIC_URL = "/kcc_soundlab_static"
-FRONTEND_REGISTERED = "frontend_registered"
+STATIC_REGISTERED = "static_registered"
 
 
 async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Register the KCC SoundLab sidebar panel and bundled frontend."""
     domain_data = hass.data.setdefault(DOMAIN, {})
-    if domain_data.get(FRONTEND_REGISTERED):
+
+    if not domain_data.get(STATIC_REGISTERED):
+        frontend_dir = Path(__file__).parent / "frontend"
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(STATIC_URL, str(frontend_dir), False)]
+        )
+        domain_data[STATIC_REGISTERED] = True
+
+    if frontend.async_panel_exists(hass, PANEL_URL):
         return
 
-    frontend_dir = Path(__file__).parent / "frontend"
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(STATIC_URL, str(frontend_dir), False)]
+    await async_register_panel(
+        hass,
+        frontend_url_path=PANEL_URL,
+        webcomponent_name=PANEL_ELEMENT,
+        sidebar_title="KCC SoundLab",
+        sidebar_icon="mdi:tune-vertical",
+        module_url=f"{STATIC_URL}/kcc-soundlab-panel.js",
+        config={
+            "entry_id": entry.entry_id,
+            "dsp_model": entry.data[CONF_DSP_MODEL],
+            "vehicle": entry.data[CONF_VEHICLE],
+            "channel_count": int(entry.data[CONF_CHANNEL_COUNT]),
+            "direct_control": False,
+        },
+        handle_safe_area=True,
     )
-
-    if not frontend.async_panel_exists(hass, PANEL_URL):
-        await async_register_panel(
-            hass,
-            frontend_url_path=PANEL_URL,
-            webcomponent_name=PANEL_ELEMENT,
-            sidebar_title="KCC SoundLab",
-            sidebar_icon="mdi:tune-vertical",
-            module_url=f"{STATIC_URL}/kcc-soundlab-panel.js",
-            config={
-                "entry_id": entry.entry_id,
-                "dsp_model": entry.data[CONF_DSP_MODEL],
-                "vehicle": entry.data[CONF_VEHICLE],
-                "channel_count": int(entry.data[CONF_CHANNEL_COUNT]),
-                "direct_control": False,
-            },
-            handle_safe_area=True,
-        )
-
-    domain_data[FRONTEND_REGISTERED] = True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -75,11 +75,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         domain_data = hass.data[DOMAIN]
         domain_data.pop(entry.entry_id, None)
         remaining_entries = [
-            key
-            for key, value in domain_data.items()
-            if key != FRONTEND_REGISTERED and isinstance(value, KCCDSPState)
+            value for value in domain_data.values() if isinstance(value, KCCDSPState)
         ]
         if not remaining_entries and frontend.async_panel_exists(hass, PANEL_URL):
             frontend.async_remove_panel(hass, PANEL_URL)
-            domain_data.pop(FRONTEND_REGISTERED, None)
     return unloaded
