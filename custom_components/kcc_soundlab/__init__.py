@@ -16,6 +16,7 @@ from .const import (
     CONF_VEHICLE,
     DOMAIN,
     PLATFORMS,
+    VERSION,
 )
 from .model import KCCDSPState
 
@@ -45,13 +46,14 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
         webcomponent_name=PANEL_ELEMENT,
         sidebar_title="KCC SoundLab",
         sidebar_icon="mdi:tune-vertical",
-        module_url=f"{STATIC_URL}/kcc-soundlab-panel.js",
+        module_url=f"{STATIC_URL}/kcc-soundlab-panel.js?v={VERSION}",
         config={
             "entry_id": entry.entry_id,
             "dsp_model": entry.data[CONF_DSP_MODEL],
             "vehicle": entry.data[CONF_VEHICLE],
             "channel_count": int(entry.data[CONF_CHANNEL_COUNT]),
             "direct_control": False,
+            "version": VERSION,
         },
     )
 
