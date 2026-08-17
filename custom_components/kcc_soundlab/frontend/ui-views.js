@@ -1,4 +1,4 @@
-import{FILTERS,SLOPES,PRESETS,ROLES,LOCATIONS,formatHz,carMap,esc}from"./ui-utils.js";
+import{FILTERS,SLOPES,PRESETS,ROLES,LOCATIONS,formatHz,carMap,esc}from"./ui-utils.js?v=0.3.1";
 const dot=c=>`<i class="dot" style="--ch:${c}"></i>`;
 const fmtDate=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString()};
 
