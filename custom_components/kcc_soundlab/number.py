@@ -111,6 +111,9 @@ class KCCChannelNumber(KCCDSPBaseEntity, NumberEntity):
         self.entity_description = description
         channel = state.channel(index)
         self._attr_unique_id = f"{entry.entry_id}_{channel['id']}_{description.key}"
+        self._attr_suggested_object_id = (
+            f"kcc_soundlab_{channel['id']}_{description.key}"
+        )
         self._attr_name = f"{channel['output']} {description.name or description.key.replace('_', ' ').title()}"
 
     @property
