@@ -1,0 +1,12 @@
+{
+  "domain": "kcc_soundlab",
+  "name": "KCC SoundLab",
+  "version": "0.1.0",
+  "config_flow": true,
+  "integration_type": "helper",
+  "documentation": "https://github.com/MVtag/KCC-SoundLab",
+  "issue_tracker": "https://github.com/MVtag/KCC-SoundLab/issues",
+  "codeowners": ["@MVtag"],
+  "iot_class": "calculated",
+  "dependencies": ["frontend", "http", "panel_custom"]
+}

@@ -1,0 +1,35 @@
+{
+  "title": "KCC SoundLab",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up KCC SoundLab",
+        "description": "Create a tuning workspace for your DSP and vehicle.",
+        "data": {
+          "dsp_model": "DSP model",
+          "vehicle": "Vehicle name",
+          "channel_count": "Active output channels"
+        },
+        "data_description": {
+          "channel_count": "Choose the number of DSP outputs currently used. Goldhorn P2 DSP Pro supports up to 12 RCA outputs."
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "distance": {"name": "Distance"},
+      "gain": {"name": "Gain"},
+      "phase": {"name": "Phase"},
+      "hpf_frequency": {"name": "HPF frequency"},
+      "lpf_frequency": {"name": "LPF frequency"}
+    },
+    "select": {
+      "polarity": {"name": "Polarity"},
+      "hpf_type": {"name": "HPF type"},
+      "hpf_slope": {"name": "HPF slope"},
+      "lpf_type": {"name": "LPF type"},
+      "lpf_slope": {"name": "LPF slope"}
+    }
+  }
+}

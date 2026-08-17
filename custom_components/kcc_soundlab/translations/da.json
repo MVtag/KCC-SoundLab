@@ -1,0 +1,35 @@
+{
+  "title": "KCC SoundLab",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Opsæt KCC SoundLab",
+        "description": "Opret et tuning-område til din DSP og bil.",
+        "data": {
+          "dsp_model": "DSP-model",
+          "vehicle": "Bilens navn",
+          "channel_count": "Aktive udgangskanaler"
+        },
+        "data_description": {
+          "channel_count": "Vælg hvor mange DSP-udgange du bruger nu. Goldhorn P2 DSP Pro har op til 12 RCA-udgange."
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "distance": {"name": "Afstand"},
+      "gain": {"name": "Gain"},
+      "phase": {"name": "Fase"},
+      "hpf_frequency": {"name": "HPF-frekvens"},
+      "lpf_frequency": {"name": "LPF-frekvens"}
+    },
+    "select": {
+      "polarity": {"name": "Polaritet"},
+      "hpf_type": {"name": "HPF-type"},
+      "hpf_slope": {"name": "HPF-hældning"},
+      "lpf_type": {"name": "LPF-type"},
+      "lpf_slope": {"name": "LPF-hældning"}
+    }
+  }
+}
