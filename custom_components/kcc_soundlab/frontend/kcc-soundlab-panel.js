@@ -5,8 +5,8 @@ class KCCSoundLabPanel extends HTMLElement{
  set hass(v){this._hass=v;if(this.isConnected){if(!this.workspace&&!this.loading)this.loadWorkspace();this.render()}} get hass(){return this._hass} set panel(v){this._panel=v;if(this.isConnected){if(!this.workspace&&!this.loading)this.loadWorkspace();this.render()}} get panel(){return this._panel} set narrow(v){this._narrow=v}
  connectedCallback(){if(!this.bound){this.shadowRoot.addEventListener("click",e=>this.click(e));this.shadowRoot.addEventListener("change",e=>this.change(e));this.bound=true}this.render();this.loadWorkspace()}
  cfg(){return this._panel?.config||{}} count(){return Math.max(1,Math.min(12,Number(this.workspace?.channel_count||this.cfg().channel_count||5)))}
- async send(type,data={}){if(!this._hass?.connection)throw new Error("Home Assistant connection is not ready");return this._hass.connection.sendMessagePromise({type,entry_id:this.cfg().entry_id,...data})}
- async loadWorkspace(){if(this.loading||!this._hass?.connection||!this.cfg().entry_id)return;this.loading=true;this.error="";try{this.workspace=await this.send("kcc_soundlab/get_state");this.localPreset=this.workspace?.preset||this.localPreset}catch(err){this.error=String(err?.message||err)}finally{this.loading=false;this.render()}}
+ async send(type,data={}){if(!this._hass?.callWS)throw new Error("Home Assistant connection is not ready");return this._hass.callWS({type,entry_id:this.cfg().entry_id,...data})}
+ async loadWorkspace(){if(this.loading||!this._hass?.callWS||!this.cfg().entry_id)return;this.loading=true;this.error="";try{this.workspace=await this.send("kcc_soundlab/get_state");this.localPreset=this.workspace?.preset||this.localPreset}catch(err){this.error=String(err?.message||err)}finally{this.loading=false;this.render()}}
  channels(){const raw=this.workspace?.channels||[];return Array.from({length:this.count()},(_,i)=>channelData(raw[i]||null,i))}
  activePreset(){return this.workspace?.preset||this.localPreset}
  reference(){if(this.workspace?.reference?.output)return this.workspace.reference.output;const c=this.channels();return c.reduce((a,b)=>b.distance>a.distance?b:a,c[0]).output}
