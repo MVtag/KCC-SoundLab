@@ -11,6 +11,7 @@ export const ROLES=["Full-range","Tweeter","Midrange","Midbass","Woofer","Subwoo
 export const LOCATIONS=["Front left dash","Front right dash","Front left door","Front right door","Center dash","Rear left","Rear right","Boot / trunk","Under seat","Other"];
 export const letter=i=>String.fromCharCode(65+i);
 export const profile=i=>PROFILE[i]||{speaker:`OUT ${letter(i)}`,role:"DSP output",location:"Other"};
+export const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const token=(index,field)=>`${index}|${field}`;
 const n=(value,fallback=0)=>{const v=Number(value);return Number.isFinite(v)?v:fallback};
 
@@ -36,5 +37,5 @@ export function carMap(channels,selected,compact=false){
  <rect x="92" y="34" width="136" height="438" rx="58" fill="url(#body)" stroke="#4a5965"/><path d="M112 92Q160 62 208 92L218 182Q160 166 102 182Z" fill="#0d1419" stroke="#35424c"/>
  <rect x="108" y="192" width="104" height="172" rx="24" fill="#0b1116" stroke="#35414b"/><rect x="116" y="206" width="38" height="62" rx="14" fill="#26323b"/><rect x="166" y="206" width="38" height="62" rx="14" fill="#26323b"/><rect x="116" y="290" width="38" height="58" rx="14" fill="#202a32"/><rect x="166" y="290" width="38" height="58" rx="14" fill="#202a32"/>
  ${channels.slice(0,5).map((c,i)=>`<g class="node ${selected===c.index?"selected":""}" data-action="channel" data-index="${c.index}"><circle cx="${pos[i][0]}" cy="${pos[i][1]}" r="10" fill="#091016" stroke="${c.color}" stroke-width="4"/><circle cx="${pos[i][0]}" cy="${pos[i][1]}" r="4" fill="${c.color}"/></g>`).join("")}</svg>
- ${channels.slice(0,5).map((c,i)=>`<button class="map-label l${i}" style="--ch:${c.color}" data-action="channel" data-index="${c.index}" data-open="channels"><b>${c.output}</b><span>${c.speaker}</span><small>${c.role} · ${c.location}</small></button>`).join("")}</div>`;
+ ${channels.slice(0,5).map((c,i)=>`<button class="map-label l${i}" style="--ch:${c.color}" data-action="channel" data-index="${c.index}" data-open="channels"><b>${esc(c.output)}</b><span>${esc(c.speaker)}</span><small>${esc(c.role)} · ${esc(c.location)}</small></button>`).join("")}</div>`;
 }
