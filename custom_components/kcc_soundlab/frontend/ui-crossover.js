@@ -1,4 +1,4 @@
-import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.7.0";
+import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.6.1";
 
 const ROLE_ORDER={"Subwoofer":0,"Woofer":1,"Midbass":2,"Midrange":3,"Full-range":4,"Tweeter":5,"Center":4,"Rear fill":4,"DSP output":4};
 const FREQ_TICKS=[20,50,100,200,500,1000,2000,5000,10000,20000];
@@ -10,17 +10,65 @@ const xFor=f=>42+((Math.log10(clamp(f,20,20000))-Math.log10(20))/(Math.log10(200
 const yFor=db=>28+((-clamp(db,-60,0))/60)*252;
 
 function roleRank(c){return ROLE_ORDER[c.role]??4}
-function orderedPair(a,b){if(roleRank(a)!==roleRank(b))return roleRank(a)<roleRank(b)?[a,b]:[b,a];if(a.lpf!==b.lpf)return a.lpf<b.lpf?[a,b]:[b,a];return a.index<b.index?[a,b]:[b,a]}
-function attenuation(c,f){let db=0;if(f<c.hpf)db-=slopeValue(c.hpfSlope)*Math.log2(c.hpf/f);if(f>c.lpf)db-=slopeValue(c.lpfSlope)*Math.log2(f/c.lpf);return clamp(db,-60,0)}
-function responsePath(c){const points=[];for(let i=0;i<=180;i++){const f=20*Math.pow(1000,i/180);points.push(`${i?"L":"M"}${xFor(f).toFixed(1)} ${yFor(attenuation(c,f)).toFixed(1)}`)}return points.join(" ")}
-function handoff(low,high){const lowCut=Math.max(20,Number(low.lpf)||20),highCut=Math.max(20,Number(high.hpf)||20),ratio=highCut/lowCut,octaves=Math.log2(ratio),center=Math.sqrt(lowCut*highCut);let state="Matched",tone="good",detail="Electrical handoff frequencies are closely matched.";if(ratio>1.12){state="Gap";tone="warn";detail=`Potential electrical gap of ${octaves.toFixed(2)} octaves.`}else if(ratio<0.89){state="Overlap";tone="info";detail=`Electrical overlap of ${Math.abs(octaves).toFixed(2)} octaves. This can be intentional.`}const sameSlope=low.lpfSlope===high.hpfSlope,sameType=low.lpfType===high.hpfType;return{lowCut,highCut,ratio,octaves,center,state,tone,detail,sameSlope,sameType,symmetric:Math.abs(octaves)<0.04&&sameSlope&&sameType}}
+function orderedPair(a,b){
+ if(roleRank(a)!==roleRank(b))return roleRank(a)<roleRank(b)?[a,b]:[b,a];
+ if(a.lpf!==b.lpf)return a.lpf<b.lpf?[a,b]:[b,a];
+ return a.index<b.index?[a,b]:[b,a];
+}
+function attenuation(c,f){
+ let db=0;
+ if(f<c.hpf)db-=slopeValue(c.hpfSlope)*Math.log2(c.hpf/f);
+ if(f>c.lpf)db-=slopeValue(c.lpfSlope)*Math.log2(f/c.lpf);
+ return clamp(db,-60,0);
+}
+function responsePath(c){
+ const points=[];
+ for(let i=0;i<=180;i++){
+  const f=20*Math.pow(1000,i/180);
+  points.push(`${i?"L":"M"}${xFor(f).toFixed(1)} ${yFor(attenuation(c,f)).toFixed(1)}`);
+ }
+ return points.join(" ");
+}
+function handoff(low,high){
+ const lowCut=Math.max(20,Number(low.lpf)||20),highCut=Math.max(20,Number(high.hpf)||20),ratio=highCut/lowCut,octaves=Math.log2(ratio),center=Math.sqrt(lowCut*highCut);
+ let state="Matched",tone="good",detail="Electrical handoff frequencies are closely matched.";
+ if(ratio>1.12){state="Gap",tone="warn",detail=`Potential electrical gap of ${octaves.toFixed(2)} octaves.`}
+ else if(ratio<0.89){state="Overlap",tone="info",detail=`Electrical overlap of ${Math.abs(octaves).toFixed(2)} octaves. This can be intentional.`}
+ const sameSlope=low.lpfSlope===high.hpfSlope,sameType=low.lpfType===high.hpfType;
+ return{lowCut,highCut,ratio,octaves,center,state,tone,detail,sameSlope,sameType,symmetric:Math.abs(octaves)<0.04&&sameSlope&&sameType};
+}
 function side(c){const s=String(c.location||"").toLowerCase();return s.includes("left")?"left":s.includes("right")?"right":""}
-function suggestedPairs(ch){const pairs=[],hasDedicatedMidbass=ch.some(c=>["Woofer","Midbass"].includes(c.role));for(let i=0;i<ch.length;i++)for(let j=i+1;j<ch.length;j++){const[low,high]=orderedPair(ch[i],ch[j]),diff=roleRank(high)-roleRank(low),lowSide=side(low),highSide=side(high),sameSide=Boolean(lowSide&&lowSide===highSide),sub=low.role==="Subwoofer";if(diff<=0)continue;let score=0;if(sub){const preference={"Woofer":42,"Midbass":40,"Midrange":24,"Full-range":10}[high.role];if(preference===undefined)continue;if(hasDedicatedMidbass&&high.role==="Full-range")continue;score=preference+(highSide?2:0)}else{score=(sameSide?36:0)+(diff===1?22:diff===2?16:6);if(lowSide&&highSide&&!sameSide)score-=30;if(!lowSide&&!highSide)score-=4}pairs.push({a:low.index,b:high.index,score})}return pairs.sort((a,b)=>b.score-a.score).slice(0,4)}
+function suggestedPairs(ch){
+ const pairs=[],hasDedicatedMidbass=ch.some(c=>["Woofer","Midbass"].includes(c.role));
+ for(let i=0;i<ch.length;i++)for(let j=i+1;j<ch.length;j++){
+  const [low,high]=orderedPair(ch[i],ch[j]),diff=roleRank(high)-roleRank(low),lowSide=side(low),highSide=side(high),sameSide=Boolean(lowSide&&lowSide===highSide),sub=low.role==="Subwoofer";
+  if(diff<=0)continue;
+  let score=0;
+  if(sub){
+   const preference={"Woofer":42,"Midbass":40,"Midrange":24,"Full-range":10}[high.role];
+   if(preference===undefined)continue;
+   if(hasDedicatedMidbass&&high.role==="Full-range")continue;
+   score=preference+(highSide?2:0);
+  }else{
+   score=(sameSide?36:0)+(diff===1?22:diff===2?16:6);
+   if(lowSide&&highSide&&!sameSide)score-=30;
+   if(!lowSide&&!highSide)score-=4;
+  }
+  pairs.push({a:low.index,b:high.index,score});
+ }
+ return pairs.sort((a,b)=>b.score-a.score).slice(0,4);
+}
 function channelOption(c,selected){return`<option value="${c.index}" ${c.index===selected?"selected":""}>${esc(c.output)} · ${esc(c.speaker)}</option>`}
 function numberControl(label,id,value,unit,step=1,dec=0){return`<label class="xo-control"><span>${label}</span><div><input data-number="${id||""}" ${!id?"disabled":""} type="number" step="${step}" value="${Number(value).toFixed(dec)}"><em>${unit}</em></div></label>`}
 function selectControl(label,id,value,options){return`<label class="xo-control"><span>${label}</span><select data-select="${id||""}" ${!id?"disabled":""}>${options.map(x=>`<option ${x===value?"selected":""}>${esc(x)}</option>`).join("")}</select></label>`}
 function filterEditor(c,title){return`<section class="xo-editor" style="--ch:${c.color}"><div class="xo-editor-title">${dot(c.color)}<div><small>${title}</small><strong>${esc(c.output)} · ${esc(c.speaker)}</strong><span>${esc(c.role)} · ${esc(c.location)}</span></div></div><div class="xo-band"><h4>HIGH-PASS</h4>${numberControl("Frequency",c.ids.hpf,c.hpf,"Hz",1,0)}${selectControl("Slope",c.ids.hpfSlope,c.hpfSlope,SLOPES)}${selectControl("Type",c.ids.hpfType,c.hpfType,FILTERS)}</div><div class="xo-band"><h4>LOW-PASS</h4>${numberControl("Frequency",c.ids.lpf,c.lpf,"Hz",1,0)}${selectControl("Slope",c.ids.lpfSlope,c.lpfSlope,SLOPES)}${selectControl("Type",c.ids.lpfType,c.lpfType,FILTERS)}</div></section>`}
-function graph(low,high,h){const lowX=xFor(h.lowCut),highX=xFor(h.highCut);return`<svg class="xo-graph" viewBox="0 0 780 330" role="img" aria-label="Electrical crossover comparison"><rect x="42" y="28" width="696" height="252" rx="8" class="xo-plot-bg"/>${DB_TICKS.map(db=>`<g><line x1="42" y1="${yFor(db)}" x2="738" y2="${yFor(db)}" class="xo-grid"/><text x="8" y="${yFor(db)+3}" class="xo-axis">${db} dB</text></g>`).join("")}${FREQ_TICKS.map(f=>`<g><line x1="${xFor(f)}" y1="28" x2="${xFor(f)}" y2="280" class="xo-grid"/><text x="${xFor(f)}" y="302" text-anchor="middle" class="xo-axis">${formatHz(f)}</text></g>`).join("")}<path d="${responsePath(low)}" fill="none" stroke="${low.color}" stroke-width="4"/><path d="${responsePath(high)}" fill="none" stroke="${high.color}" stroke-width="4"/><line x1="${lowX}" y1="28" x2="${lowX}" y2="280" stroke="${low.color}" stroke-dasharray="5 5" opacity=".8"/><line x1="${highX}" y1="28" x2="${highX}" y2="280" stroke="${high.color}" stroke-dasharray="5 5" opacity=".8"/><text x="${clamp(lowX-5,70,700)}" y="45" text-anchor="end" fill="${low.color}" class="xo-marker">LPF ${formatHz(h.lowCut)}</text><text x="${clamp(highX+5,80,710)}" y="62" fill="${high.color}" class="xo-marker">HPF ${formatHz(h.highCut)}</text></svg>`}
+function graph(low,high,h){
+ const lowX=xFor(h.lowCut),highX=xFor(h.highCut);
+ return`<svg class="xo-graph" viewBox="0 0 780 330" role="img" aria-label="Electrical crossover comparison"><rect x="42" y="28" width="696" height="252" rx="8" class="xo-plot-bg"/>${DB_TICKS.map(db=>`<g><line x1="42" y1="${yFor(db)}" x2="738" y2="${yFor(db)}" class="xo-grid"/><text x="8" y="${yFor(db)+3}" class="xo-axis">${db} dB</text></g>`).join("")}${FREQ_TICKS.map(f=>`<g><line x1="${xFor(f)}" y1="28" x2="${xFor(f)}" y2="280" class="xo-grid"/><text x="${xFor(f)}" y="302" text-anchor="middle" class="xo-axis">${formatHz(f)}</text></g>`).join("")}<path d="${responsePath(low)}" fill="none" stroke="${low.color}" stroke-width="4"/><path d="${responsePath(high)}" fill="none" stroke="${high.color}" stroke-width="4"/><line x1="${lowX}" y1="28" x2="${lowX}" y2="280" stroke="${low.color}" stroke-dasharray="5 5" opacity=".8"/><line x1="${highX}" y1="28" x2="${highX}" y2="280" stroke="${high.color}" stroke-dasharray="5 5" opacity=".8"/><text x="${clamp(lowX-5,70,700)}" y="45" text-anchor="end" fill="${low.color}" class="xo-marker">LPF ${formatHz(h.lowCut)}</text><text x="${clamp(highX+5,80,710)}" y="62" fill="${high.color}" class="xo-marker">HPF ${formatHz(h.highCut)}</text></svg>`;
+}
 
-export function crossoverView(p,ch){if(ch.length<2)return`<section class="card"><h3>CROSSOVER LAB</h3><div class="empty-state">At least two active outputs are required for crossover comparison.</div></section>`;const pair=p.crossoverIndices(ch),first=ch[pair[0]],second=ch[pair[1]],[low,high]=orderedPair(first,second),h=handoff(low,high),suggestions=suggestedPairs(ch),subPair=low.role==="Subwoofer";return`<section class="xo-top"><div class="card xo-pair-card"><h3>CROSSOVER PAIR</h3><div class="xo-pair-select"><label><span>OUTPUT 1</span><select data-crossover-select="0">${ch.map(c=>channelOption(c,pair[0])).join("")}</select></label><button data-action="crossover-swap" title="Swap selected outputs">⇄</button><label><span>OUTPUT 2</span><select data-crossover-select="1">${ch.map(c=>channelOption(c,pair[1])).join("")}</select></label></div>${suggestions.length?`<div class="xo-suggestions"><small>SUGGESTED PAIRS</small>${suggestions.map(s=>`<button data-action="crossover-pair" data-a="${s.a}" data-b="${s.b}">${esc(ch[s.a].output)} ↔ ${esc(ch[s.b].output)}</button>`).join("")}</div>`:""}</div><div class="card xo-analysis"><h3>HANDOFF ANALYSIS</h3><div class="xo-state ${h.tone}"><strong>${h.state}</strong><span>${h.detail}</span></div><div class="xo-stats"><div><small>LOW LPF</small><b>${formatHz(h.lowCut)}</b><span>${esc(low.output)}</span></div><div><small>HIGH HPF</small><b>${formatHz(h.highCut)}</b><span>${esc(high.output)}</span></div><div><small>CENTER</small><b>${formatHz(h.center)}</b><span>geometric mean</span></div><div><small>OFFSET</small><b>${Math.abs(h.octaves).toFixed(2)} oct</b><span>${h.octaves>0?"gap":h.octaves<0?"overlap":"matched"}</span></div></div><div class="xo-checks"><span class="${h.sameType?"ok":""}">${h.sameType?"✓":"!"} Filter type ${h.sameType?"matches":"differs"}</span><span class="${h.sameSlope?"ok":""}">${h.sameSlope?"✓":"!"} Slope ${h.sameSlope?"matches":"differs"}</span><span class="${h.symmetric?"ok":""}">${h.symmetric?"✓":"•"} ${h.symmetric?"Symmetric electrical handoff":"Verify acoustic sum in Measurement"}</span></div></div></section><section class="card xo-graph-card"><div class="xo-graph-head"><div><h3>ELECTRICAL FILTER SKETCH</h3><p>Approximate slope view for setup comparison. It is not an acoustic prediction and does not include speaker response, cabin response, phase or EQ.</p></div><div class="xo-legend"><span style="--ch:${low.color}">${dot(low.color)}${esc(low.output)} · low</span><span style="--ch:${high.color}">${dot(high.color)}${esc(high.output)} · high</span></div></div>${graph(low,high,h)}</section><section class="xo-editors">${filterEditor(low,"LOW SIDE")}${filterEditor(high,"HIGH SIDE")}</section><section class="card xo-guide"><h3>TUNING GUIDE</h3><div><b>1</b><span>Choose the two drivers that share an acoustic handoff.</span><b>2</b><span>Set electrical HPF/LPF, type and slope here.</span><b>3</b><span>Use the analysis only as a setup check — overlap can be intentional.</span><b>4</b><span>After installation, verify the summed response and phase around the crossover with HolmImpulse in Measurement.</span></div>${subPair?`<div class="wizard-actions"><button data-action="view" data-view="subwoofer">Continue to Sub Alignment</button></div>`:""}</section>`}
+export function crossoverView(p,ch){
+ if(ch.length<2)return`<section class="card"><h3>CROSSOVER LAB</h3><div class="empty-state">At least two active outputs are required for crossover comparison.</div></section>`;
+ const pair=p.crossoverIndices(ch),first=ch[pair[0]],second=ch[pair[1]],[low,high]=orderedPair(first,second),h=handoff(low,high),suggestions=suggestedPairs(ch);
+ return`<section class="xo-top"><div class="card xo-pair-card"><h3>CROSSOVER PAIR</h3><div class="xo-pair-select"><label><span>OUTPUT 1</span><select data-crossover-select="0">${ch.map(c=>channelOption(c,pair[0])).join("")}</select></label><button data-action="crossover-swap" title="Swap selected outputs">⇄</button><label><span>OUTPUT 2</span><select data-crossover-select="1">${ch.map(c=>channelOption(c,pair[1])).join("")}</select></label></div>${suggestions.length?`<div class="xo-suggestions"><small>SUGGESTED PAIRS</small>${suggestions.map(s=>`<button data-action="crossover-pair" data-a="${s.a}" data-b="${s.b}">${esc(ch[s.a].output)} ↔ ${esc(ch[s.b].output)}</button>`).join("")}</div>`:""}</div><div class="card xo-analysis"><h3>HANDOFF ANALYSIS</h3><div class="xo-state ${h.tone}"><strong>${h.state}</strong><span>${h.detail}</span></div><div class="xo-stats"><div><small>LOW LPF</small><b>${formatHz(h.lowCut)}</b><span>${esc(low.output)}</span></div><div><small>HIGH HPF</small><b>${formatHz(h.highCut)}</b><span>${esc(high.output)}</span></div><div><small>CENTER</small><b>${formatHz(h.center)}</b><span>geometric mean</span></div><div><small>OFFSET</small><b>${Math.abs(h.octaves).toFixed(2)} oct</b><span>${h.octaves>0?"gap":h.octaves<0?"overlap":"matched"}</span></div></div><div class="xo-checks"><span class="${h.sameType?"ok":""}">${h.sameType?"✓":"!"} Filter type ${h.sameType?"matches":"differs"}</span><span class="${h.sameSlope?"ok":""}">${h.sameSlope?"✓":"!"} Slope ${h.sameSlope?"matches":"differs"}</span><span class="${h.symmetric?"ok":""}">${h.symmetric?"✓":"•"} ${h.symmetric?"Symmetric electrical handoff":"Verify acoustic sum in Measurement"}</span></div></div></section><section class="card xo-graph-card"><div class="xo-graph-head"><div><h3>ELECTRICAL FILTER SKETCH</h3><p>Approximate slope view for setup comparison. It is not an acoustic prediction and does not include speaker response, cabin response, phase or EQ.</p></div><div class="xo-legend"><span style="--ch:${low.color}">${dot(low.color)}${esc(low.output)} · low</span><span style="--ch:${high.color}">${dot(high.color)}${esc(high.output)} · high</span></div></div>${graph(low,high,h)}</section><section class="xo-editors">${filterEditor(low,"LOW SIDE")}${filterEditor(high,"HIGH SIDE")}</section><section class="card xo-guide"><h3>TUNING GUIDE</h3><div><b>1</b><span>Choose the two drivers that share an acoustic handoff.</span><b>2</b><span>Set electrical HPF/LPF, type and slope here.</span><b>3</b><span>Use the analysis only as a setup check — overlap can be intentional.</span><b>4</b><span>After installation, verify the summed response and phase around the crossover with HolmImpulse in Measurement.</span></div></section>`;
 }
