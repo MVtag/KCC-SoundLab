@@ -1,4 +1,4 @@
-import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.6.0";
+import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.6.1";
 
 const ROLE_ORDER={"Subwoofer":0,"Woofer":1,"Midbass":2,"Midrange":3,"Full-range":4,"Tweeter":5,"Center":4,"Rear fill":4,"DSP output":4};
 const FREQ_TICKS=[20,50,100,200,500,1000,2000,5000,10000,20000];
@@ -39,13 +39,21 @@ function handoff(low,high){
 }
 function side(c){const s=String(c.location||"").toLowerCase();return s.includes("left")?"left":s.includes("right")?"right":""}
 function suggestedPairs(ch){
- const pairs=[];
+ const pairs=[],hasDedicatedMidbass=ch.some(c=>["Woofer","Midbass"].includes(c.role));
  for(let i=0;i<ch.length;i++)for(let j=i+1;j<ch.length;j++){
-  const [low,high]=orderedPair(ch[i],ch[j]),diff=roleRank(high)-roleRank(low),sameSide=side(low)&&side(low)===side(high),sub=low.role==="Subwoofer";
+  const [low,high]=orderedPair(ch[i],ch[j]),diff=roleRank(high)-roleRank(low),lowSide=side(low),highSide=side(high),sameSide=Boolean(lowSide&&lowSide===highSide),sub=low.role==="Subwoofer";
   if(diff<=0)continue;
-  let score=diff*2+(sameSide?6:0)+(sub?4:0);
-  if(sub&&!["Woofer","Midbass","Midrange","Full-range"].includes(high.role))score-=5;
-  if(!sub&&side(low)&&side(high)&&!sameSide)score-=8;
+  let score=0;
+  if(sub){
+   const preference={"Woofer":42,"Midbass":40,"Midrange":24,"Full-range":10}[high.role];
+   if(preference===undefined)continue;
+   if(hasDedicatedMidbass&&high.role==="Full-range")continue;
+   score=preference+(highSide?2:0);
+  }else{
+   score=(sameSide?36:0)+(diff===1?22:diff===2?16:6);
+   if(lowSide&&highSide&&!sameSide)score-=30;
+   if(!lowSide&&!highSide)score-=4;
+  }
   pairs.push({a:low.index,b:high.index,score});
  }
  return pairs.sort((a,b)=>b.score-a.score).slice(0,4);
