@@ -11,6 +11,8 @@ export const ROLES=["Full-range","Tweeter","Midrange","Midbass","Woofer","Subwoo
 export const LOCATIONS=["Front left dash","Front right dash","Front left door","Front right door","Center dash","Rear left","Rear right","Boot / trunk","Under seat","Other"];
 export const MEASUREMENT_POSITIONS=["Driver seat","Passenger seat","Center","Custom"];
 export const MEASUREMENT_POLARITY=["Unknown","Positive","Negative"];
+export const EQ_FREQUENCIES=[20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
+export const TARGET_CURVE_OPTIONS=["Flat","KCC SQ Draft","Warm","Custom"];
 export const letter=i=>String.fromCharCode(65+i);
 export const profile=i=>PROFILE[i]||{speaker:`OUT ${letter(i)}`,role:"DSP output",location:"Other"};
 export const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
@@ -26,11 +28,13 @@ export function channelData(raw,index){
   polarityVerified:ready?token(index,"polarity_verified"):null,alignmentVerified:ready?token(index,"alignment_verified"):null,
   hpfType:ready?token(index,"hpf_type"):null,hpfSlope:ready?token(index,"hpf_slope"):null,lpfType:ready?token(index,"lpf_type"):null,lpfSlope:ready?token(index,"lpf_slope"):null
  };
+ const sourceBands=Array.isArray(c.eq_bands)?c.eq_bands:[];
+ const eqBands=EQ_FREQUENCIES.map((frequency,i)=>{const band=sourceBands[i]||{};return{index:i,enabled:Boolean(band.enabled),frequency:n(band.frequency_hz,frequency),gain:n(band.gain_db),q:n(band.q,1)}});
  return{index,output:String(c.output||`OUT ${letter(index)}`),name:String(c.name||`OUT ${letter(index)}`),color:COLORS[index%COLORS.length],speaker:String(c.speaker||p.speaker),role:String(c.role||p.role),location:String(c.location||p.location),ids,
   distance:n(c.distance_cm),gain:n(c.gain_db),phase:n(c.phase_deg),hpf:n(c.hpf_hz,20),lpf:n(c.lpf_hz,20000),fineDelay:n(c.fine_delay_ms),
   polarity:String(c.polarity||"Normal"),polarityVerified:Boolean(c.polarity_verified),alignmentVerified:Boolean(c.alignment_verified),
   hpfType:String(c.hpf_type||"Linkwitz-Riley"),hpfSlope:String(c.hpf_slope||"24 dB/oct"),lpfType:String(c.lpf_type||"Linkwitz-Riley"),lpfSlope:String(c.lpf_slope||"24 dB/oct"),
-  delay:n(c.delay_ms),recommendedDelay:n(c.recommended_delay_ms,c.delay_ms),path:n(c.path_delta_cm)};
+  delay:n(c.delay_ms),recommendedDelay:n(c.recommended_delay_ms,c.delay_ms),path:n(c.path_delta_cm),eqBands,eqActiveBands:n(c.eq_active_bands,eqBands.filter(b=>b.enabled&&Math.abs(b.gain)>.001).length)};
 }
 export const formatHz=v=>v>=1000?`${Number.isInteger(v/1000)?v/1000:(v/1000).toFixed(1)} kHz`:`${Math.round(v)} Hz`;
 export function carMap(channels,selected,compact=false){
