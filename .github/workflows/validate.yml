@@ -42,22 +42,28 @@ jobs:
           node --check custom_components/kcc_soundlab/frontend/ui-utils.js
           node --check custom_components/kcc_soundlab/frontend/ui-views.js
           node --check custom_components/kcc_soundlab/frontend/ui-measurement.js
+          node --check custom_components/kcc_soundlab/frontend/ui-crossover.js
 
-      - name: Validate frontend module cache keys
+      - name: Validate frontend module cache versions
         run: |
           python - <<'PY'
+          import json
           import re
           from pathlib import Path
 
           frontend = Path("custom_components/kcc_soundlab/frontend")
+          manifest = json.loads(Path("custom_components/kcc_soundlab/manifest.json").read_text(encoding="utf-8"))
+          version = manifest["version"]
           errors = []
-          pattern = re.compile(r'from["\'](\./[^"\']+\.js)(?:["\'])')
+          pattern = re.compile(r'from["\'](\./[^"\']+\.js)(?:\?v=([^"\']+))?["\']')
           for path in frontend.glob("*.js"):
               text = path.read_text(encoding="utf-8")
-              for match in pattern.finditer(text):
-                  specifier = match.group(1)
-                  errors.append(f"{path}: local JS import lacks version query: {specifier}")
+              for specifier, found_version in pattern.findall(text):
+                  if not found_version:
+                      errors.append(f"{path}: local JS import lacks version query: {specifier}")
+                  elif found_version != version:
+                      errors.append(f"{path}: {specifier} uses v={found_version}, expected v={version}")
           if errors:
               raise SystemExit("\n".join(errors))
-          print("OK all local frontend JS imports are versioned")
+          print(f"OK all local frontend JS imports use v={version}")
           PY
