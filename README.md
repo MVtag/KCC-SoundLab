@@ -2,11 +2,11 @@
 
 Home Assistant based car-audio DSP tuning, measurement and calibration toolkit.
 
-KCC SoundLab is being built around the current KCC car-audio setup with **Goldhorn P2 DSP Pro** as the first supported DSP. The long-term goal is a guided tuning environment for channel setup, crossover, time alignment, measurement, presets and EQ.
+KCC SoundLab is being built around the current KCC car-audio setup with **Goldhorn P2 DSP Pro** as the first supported DSP. The long-term goal is a guided tuning environment for channel setup, crossover, time alignment, measurement, EQ, presets and eventually controlled DSP write-back.
 
-> **v0.5 is a tuning, crossover and measurement assistant.** It stores tuning and HolmImpulse measurement data inside the integration, but it does not yet write settings directly to the Goldhorn DSP.
+> **v0.6 is a tuning, crossover, measurement and EQ assistant.** It stores tuning data inside the integration, but it does not yet write settings directly to the Goldhorn DSP.
 
-## v0.5 features
+## v0.6 features
 
 - Configure a Goldhorn P2 DSP Pro workspace from the Home Assistant UI.
 - Model 1–12 active outputs while keeping Home Assistant clean with only two status entities.
@@ -16,15 +16,16 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 - Add HolmImpulse fine correction per channel and track polarity/alignment verification.
 - Save up to 20 complete tuning snapshots.
 - **Measurement Center** with up to 20 persistent HolmImpulse measurement sessions.
-- Store listening position, setup notes, impulse peak time, level, observed polarity, notes and measured state per channel.
-- Compare relative arrival time inside a measurement session using `latest impulse - channel impulse`.
 - **Crossover Lab** for two-output electrical handoff setup and comparison.
-- Compare two filter sketches on one logarithmic frequency graph.
-- Automatically identify the lower-frequency and higher-frequency side of the selected pair from channel roles.
-- Analyse LPF ↔ HPF handoff as matched, gap or overlap and show octave offset, center frequency, filter-type match and slope match.
-- Edit HPF/LPF frequency, type and slope for both selected outputs directly in Crossover Lab.
-- Suggested crossover pairs based on role and left/right location.
-- Keep crossover analysis explicitly electrical: acoustic response, cabin effects, phase and EQ must still be verified by measurement.
+- **EQ / Target Curve** workspace with 31 EQ bands per output.
+- Each EQ band stores enabled state, frequency, gain and Q.
+- Electrical EQ preview on a logarithmic frequency graph.
+- Global target curve overlay with Flat, KCC SQ Draft, Warm and Custom modes.
+- Six editable target-curve gain anchors from 20 Hz to 20 kHz.
+- Copy all EQ bands from one output to another.
+- Reset one output back to a flat 31-band EQ.
+- EQ and target curve are included in tuning snapshots.
+- Compact status entity exposes active EQ-band count and current target curve without adding new parameter entities.
 - Open SoundLab directly from the Home Assistant sidebar.
 
 ## Workspaces
@@ -33,8 +34,9 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 - **Channels** – channel setup, gain/phase/polarity and per-channel filter controls.
 - **Time Alignment** – physical distance, HolmImpulse fine correction, verification and final delay.
 - **Crossover** – paired-output filter comparison, handoff analysis and direct HPF/LPF editing.
+- **EQ** – 31-band channel EQ, electrical preview, copy/reset tools and target curve.
 - **Measurement** – HolmImpulse sessions, channel-by-channel results and arrival comparison.
-- **Presets** – save, restore and delete complete tuning snapshots.
+- **Presets** – save, restore and delete complete tuning snapshots including EQ/target data.
 
 ## Installation for prototype testing
 
@@ -50,7 +52,9 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 
 ### Updating from earlier versions
 
-The internal workspace remains backward compatible with existing channel/tuning and measurement data. Crossover Lab uses the existing HPF/LPF channel settings, so v0.5 does not add parameter entities or require a storage migration.
+The internal workspace remains backward compatible with existing channel/tuning and measurement data. When upgrading to v0.6, each existing output receives a flat default 31-band EQ and the target curve defaults to Flat. Existing gain, crossover, phase, time-alignment, measurement and snapshot data remain intact.
+
+No new Home Assistant parameter entities are created.
 
 ## Current KCC five-channel profile
 
@@ -78,9 +82,24 @@ Select any two active outputs. SoundLab orders them as a low-frequency and high-
 
 `low-side LPF ↔ high-side HPF`
 
-The handoff is classified as **Matched**, **Gap** or **Overlap** using the electrical crossover frequencies, and SoundLab also shows the logarithmic/octave offset plus whether filter type and slope match.
+The handoff is classified as **Matched**, **Gap** or **Overlap** using the electrical crossover frequencies. SoundLab also shows octave offset plus whether filter type and slope match.
 
 The plotted curves are setup sketches based on filter frequency and nominal dB/oct slope. They are not acoustic predictions. Final crossover decisions must be verified from the measured summed response and phase after installation.
+
+## EQ / Target Curve
+
+The P2 DSP Pro workspace uses 31 EQ bands per output. SoundLab stores the following values for each band:
+
+- enabled / disabled,
+- frequency from 20 Hz to 20 kHz,
+- gain from -12 dB to +12 dB,
+- Q from 0.1 to 20.
+
+The EQ graph is an **electrical preview** used for workspace planning. It is not a substitute for an acoustic measurement.
+
+The target curve is a separate reference overlay. The built-in **KCC SQ Draft** and **Warm** curves are starting references only; they do not automatically apply EQ. Editing any target point changes the target mode to Custom.
+
+A complete tuning snapshot stores the channel EQ and the active target curve alongside crossover, gain, phase and time alignment.
 
 ## Measurement Center
 
@@ -88,7 +107,7 @@ Create one session per microphone/listening position and keep the same HolmImpul
 
 `relative_delay_ms = latest_impulse_ms - channel_impulse_ms`
 
-This is measurement evidence, not automatic DSP write-back. Final tuning changes remain deliberate and are entered through Time Alignment.
+This is measurement evidence, not automatic DSP write-back. Final tuning changes remain deliberate and are entered through the relevant SoundLab workspace.
 
 ## Frontend architecture
 
@@ -99,7 +118,7 @@ Frontend module imports are versioned with the integration version. CI validates
 ## Planned next steps
 
 - Subwoofer phase/alignment workflow with guided comparisons.
-- PEQ and target-curve workflow.
+- Measurement-aware EQ suggestions after real measurement data is available.
 - Import/compare measurement files and tuning sessions.
 - Configurable car/channel-map positions beyond the first five-channel profile.
 - Research direct Goldhorn controller/protocol support and write-back.
