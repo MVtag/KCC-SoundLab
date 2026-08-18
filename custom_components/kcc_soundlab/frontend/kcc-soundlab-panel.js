@@ -42,12 +42,13 @@ class KCCSoundLabPanel extends HTMLElement{
  async setTargetPoint(point,gain){const index=Number(point),gainDb=Number(gain);if(!Number.isInteger(index)||!Number.isFinite(gainDb))return;try{this.workspace=await this.send("kcc_soundlab/set_target_curve_point",{point:index,gain_db:gainDb});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
  subSelection(ch=this.channels()){
   const subs=ch.filter(c=>c.role==="Subwoofer");if(!subs.length)return{sub:0,refA:-1,refB:-1};
-  let sub=Number(this.subChannel);if(!Number.isInteger(sub)||!subs.some(c=>c.index===sub))sub=subs[0].index;
+  let sub=this.subChannel===null?NaN:Number(this.subChannel);if(!Number.isInteger(sub)||!subs.some(c=>c.index===sub))sub=subs[0].index;
   const refs=ch.filter(c=>c.index!==sub&&c.role!=="Subwoofer"),rank={Midbass:0,Woofer:1,Midrange:2,"Full-range":3,Center:4,"Rear fill":5,"DSP output":6,Tweeter:7};
   refs.sort((a,b)=>(rank[a.role]??9)-(rank[b.role]??9)||a.index-b.index);
   const left=refs.find(c=>String(c.location).toLowerCase().includes("left")),right=refs.find(c=>String(c.location).toLowerCase().includes("right"));
-  let refA=Number(this.subRefA);if(!Number.isInteger(refA)||!refs.some(c=>c.index===refA))refA=(left||refs[0])?.index??-1;
-  let refB=Number(this.subRefB);if(!Number.isInteger(refB)||refB===refA||!refs.some(c=>c.index===refB))refB=(right&&right.index!==refA?right:refs.find(c=>c.index!==refA))?.index??-1;
+  let refA=this.subRefA===null?NaN:Number(this.subRefA);if(!Number.isInteger(refA)||!refs.some(c=>c.index===refA))refA=(left||refs[0])?.index??-1;
+  let refB=this.subRefB===null?NaN:Number(this.subRefB);if(refB!==-1&&(!Number.isInteger(refB)||refB===refA||!refs.some(c=>c.index===refB)))refB=(right&&right.index!==refA?right:refs.find(c=>c.index!==refA))?.index??-1;
+  if(!Number.isInteger(refB))refB=(right&&right.index!==refA?right:refs.find(c=>c.index!==refA))?.index??-1;
   this.subChannel=sub;this.subRefA=refA;this.subRefB=refB;return{sub,refA,refB};
  }
  setSubSelection(kind,value){const ch=this.channels(),v=Number(value);if(kind==="sub"){if(!ch[v]||ch[v].role!=="Subwoofer")return;this.subChannel=v;this.subRefA=null;this.subRefB=null;this.subSelection(ch)}else if(kind==="refA"){if(v<0||v===this.subChannel||!ch[v])return;this.subRefA=v;if(this.subRefB===v)this.subRefB=null;this.subSelection(ch)}else if(kind==="refB"){if(v===-1)this.subRefB=-1;else if(v>=0&&v!==this.subChannel&&ch[v]){this.subRefB=v;if(this.subRefA===v)this.subRefA=null;this.subSelection(ch)}}this.render()}
