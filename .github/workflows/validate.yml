@@ -43,6 +43,7 @@ jobs:
           node --check custom_components/kcc_soundlab/frontend/ui-views.js
           node --check custom_components/kcc_soundlab/frontend/ui-measurement.js
           node --check custom_components/kcc_soundlab/frontend/ui-crossover.js
+          node --check custom_components/kcc_soundlab/frontend/ui-subwoofer.js
           node --check custom_components/kcc_soundlab/frontend/ui-eq.js
 
       - name: Validate frontend module cache versions

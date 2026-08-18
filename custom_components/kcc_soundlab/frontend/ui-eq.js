@@ -1,4 +1,4 @@
-import{TARGET_CURVE_OPTIONS,formatHz,esc}from"./ui-utils.js?v=0.6.1";
+import{TARGET_CURVE_OPTIONS,formatHz,esc}from"./ui-utils.js?v=0.7.0";
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const logX=(f,left=48,width=682)=>left+(Math.log10(clamp(f,20,20000))-Math.log10(20))/(Math.log10(20000)-Math.log10(20))*width;

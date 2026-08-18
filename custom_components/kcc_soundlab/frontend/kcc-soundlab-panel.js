@@ -1,10 +1,14 @@
-import{PRESETS,channelData,esc}from"./ui-utils.js?v=0.6.1";
-import{overview,channelsView,alignmentView,presetsView}from"./ui-views.js?v=0.6.1";
-import{measurementView}from"./ui-measurement.js?v=0.6.1";
-import{crossoverView}from"./ui-crossover.js?v=0.6.1";
-import{eqView}from"./ui-eq.js?v=0.6.1";
+import{PRESETS,channelData,esc}from"./ui-utils.js?v=0.7.0";
+import{overview,channelsView,alignmentView,presetsView}from"./ui-views.js?v=0.7.0";
+import{measurementView}from"./ui-measurement.js?v=0.7.0";
+import{crossoverView}from"./ui-crossover.js?v=0.7.0";
+import{eqView}from"./ui-eq.js?v=0.7.0";
+import{subwooferView}from"./ui-subwoofer.js?v=0.7.0";
+
 class KCCSoundLabPanel extends HTMLElement{
- constructor(){super();this.attachShadow({mode:"open"});this._hass=null;this._panel=null;this.workspace=null;this.loading=false;this.error="";this.view="overview";this.selected=0;this.localPreset="Driver SQ";this.crossoverPair=[2,0];this.eqChannel=0;this.eqBand=0;this.eqCopyTarget=1;this.bound=false;}
+ constructor(){
+  super();this.attachShadow({mode:"open"});this._hass=null;this._panel=null;this.workspace=null;this.loading=false;this.error="";this.view="overview";this.selected=0;this.localPreset="Driver SQ";this.crossoverPair=[2,0];this.eqChannel=0;this.eqBand=0;this.eqCopyTarget=1;this.subChannel=null;this.subRefA=null;this.subRefB=null;this.subSweepSpan=2;this.subSweepStep=.2;this.subPhaseStep=45;this.bound=false;
+ }
  set hass(v){const first=!this._hass;this._hass=v;if(!this.isConnected)return;if(!this.workspace&&!this.loading)this.loadWorkspace();else if(first)this.render()}
  get hass(){return this._hass}
  set panel(v){this._panel=v;if(this.isConnected){if(!this.workspace&&!this.loading)this.loadWorkspace();this.render()}}
@@ -36,6 +40,23 @@ class KCCSoundLabPanel extends HTMLElement{
  async copyEq(){const source=Number(this.eqChannel),target=Number(this.eqCopyTarget);if(!Number.isInteger(target)||source===target)return;try{this.workspace=await this.send("kcc_soundlab/copy_eq",{source,target});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
  async setTargetPreset(preset){try{this.workspace=await this.send("kcc_soundlab/set_target_curve_preset",{preset:String(preset)});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
  async setTargetPoint(point,gain){const index=Number(point),gainDb=Number(gain);if(!Number.isInteger(index)||!Number.isFinite(gainDb))return;try{this.workspace=await this.send("kcc_soundlab/set_target_curve_point",{point:index,gain_db:gainDb});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
+ subSelection(ch=this.channels()){
+  const subs=ch.filter(c=>c.role==="Subwoofer");if(!subs.length)return{sub:0,refA:-1,refB:-1};
+  let sub=this.subChannel===null?NaN:Number(this.subChannel);if(!Number.isInteger(sub)||!subs.some(c=>c.index===sub))sub=subs[0].index;
+  const refs=ch.filter(c=>c.index!==sub&&c.role!=="Subwoofer"),rank={Midbass:0,Woofer:1,Midrange:2,"Full-range":3,Center:4,"Rear fill":5,"DSP output":6,Tweeter:7};
+  refs.sort((a,b)=>(rank[a.role]??9)-(rank[b.role]??9)||a.index-b.index);
+  const left=refs.find(c=>String(c.location).toLowerCase().includes("left")),right=refs.find(c=>String(c.location).toLowerCase().includes("right"));
+  let refA=this.subRefA===null?NaN:Number(this.subRefA);if(!Number.isInteger(refA)||!refs.some(c=>c.index===refA))refA=(left||refs[0])?.index??-1;
+  let refB=this.subRefB===null?NaN:Number(this.subRefB);if(refB!==-1&&(!Number.isInteger(refB)||refB===refA||!refs.some(c=>c.index===refB)))refB=(right&&right.index!==refA?right:refs.find(c=>c.index!==refA))?.index??-1;
+  if(!Number.isInteger(refB))refB=(right&&right.index!==refA?right:refs.find(c=>c.index!==refA))?.index??-1;
+  this.subChannel=sub;this.subRefA=refA;this.subRefB=refB;return{sub,refA,refB};
+ }
+ setSubSelection(kind,value){const ch=this.channels(),v=Number(value);if(kind==="sub"){if(!ch[v]||ch[v].role!=="Subwoofer")return;this.subChannel=v;this.subRefA=null;this.subRefB=null;this.subSelection(ch)}else if(kind==="refA"){if(v<0||v===this.subChannel||!ch[v])return;this.subRefA=v;if(this.subRefB===v)this.subRefB=null;this.subSelection(ch)}else if(kind==="refB"){if(v===-1)this.subRefB=-1;else if(v>=0&&v!==this.subChannel&&ch[v]){this.subRefB=v;if(this.subRefA===v)this.subRefA=null;this.subSelection(ch)}}this.render()}
+ setSubConfig(kind,value){const v=Number(value);if(!Number.isFinite(v))return;if(kind==="span")this.subSweepSpan=v;else if(kind==="step")this.subSweepStep=v;else if(kind==="phaseStep")this.subPhaseStep=v;this.render()}
+ async applySubDelay(value){const s=this.subSelection(),v=Number(value);if(Number.isFinite(v))await this.setChannel(`${s.sub}|fine_delay_ms`,v)}
+ async applySubPhase(value){const s=this.subSelection(),v=Number(value);if(Number.isFinite(v))await this.setChannel(`${s.sub}|phase_deg`,v)}
+ async toggleSubPolarity(){const s=this.subSelection(),c=this.channels()[s.sub];if(c)await this.setChannel(`${s.sub}|polarity`,c.polarity==="Normal"?"Inverted":"Normal")}
+ async toggleSubVerified(){const s=this.subSelection(),c=this.channels()[s.sub];if(c)await this.setChannel(`${s.sub}|alignment_verified`,!c.alignmentVerified)}
  parseToken(t){const[index,field]=String(t||"").split("|");return{index:Number(index),field}}
  valueForToken(t){const{index,field}=this.parseToken(t);return this.workspace?.channels?.[index]?.[field]}
  async setChannel(token,value){const{index,field}=this.parseToken(token);if(!field||!Number.isFinite(index))return;try{this.workspace=await this.send("kcc_soundlab/set_channel",{channel:index,field,value});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
@@ -52,8 +73,54 @@ class KCCSoundLabPanel extends HTMLElement{
  async setMeasurement(session,index,field,value){if(!session||!Number.isFinite(index)||!field)return;try{this.workspace=await this.send("kcc_soundlab/set_measurement_result",{session_id:session,channel:index,field,value});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
  async toggleMeasurementComplete(session,index){const s=this.measurementSessions().find(x=>x.id===session),r=s?.results?.find(x=>Number(x.channel_index)===index)||s?.results?.[index];await this.setMeasurement(session,index,"completed",!Boolean(r?.completed))}
  async deleteMeasurement(id){if(!id)return;if(globalThis.confirm&&!globalThis.confirm("Delete this measurement session?"))return;try{this.workspace=await this.send("kcc_soundlab/delete_measurement_session",{session_id:id});this.error=""}catch(err){this.error=String(err?.message||err)}this.render()}
- click(e){const b=e.target.closest("[data-action]");if(!b)return;const a=b.dataset.action;if(a==="view"){this.view=b.dataset.view;this.render()}else if(a==="channel"){this.selected=Number(b.dataset.index||0);if(b.dataset.open)this.view=b.dataset.open;this.render()}else if(a==="preset"){this.setPreset(b.dataset.preset)}else if(a==="plus"||a==="minus"){const token=b.dataset.entity,step=Number(b.dataset.step||1),current=Number(this.valueForToken(token)||0),v=current+(a==="plus"?step:-step);this.setNumber(token,v)}else if(a==="verify"){this.toggleVerify(b.dataset.entity)}else if(a==="save-snapshot"){this.saveSnapshot()}else if(a==="restore-snapshot"){this.restoreSnapshot(b.dataset.snapshot)}else if(a==="delete-snapshot"){this.deleteSnapshot(b.dataset.snapshot)}else if(a==="create-measurement"){this.createMeasurement()}else if(a==="select-measurement"){this.selectMeasurement(b.dataset.session)}else if(a==="measurement-complete"){this.toggleMeasurementComplete(b.dataset.session,Number(b.dataset.channel))}else if(a==="delete-measurement"){this.deleteMeasurement(b.dataset.session)}else if(a==="crossover-swap"){this.swapCrossover()}else if(a==="crossover-pair"){this.setCrossoverPair(b.dataset.a,b.dataset.b)}else if(a==="eq-channel"){this.setEqChannel(b.dataset.index)}else if(a==="eq-band"){this.setEqBandIndex(b.dataset.band)}else if(a==="eq-toggle"){this.toggleEqBand()}else if(a==="eq-reset"){this.resetEq()}else if(a==="eq-copy"){this.copyEq()}}
- change(e){const t=e.target;if(t.matches("[data-number]"))this.setNumber(t.dataset.number,t.value);if(t.matches("[data-select]"))this.setSelect(t.dataset.select,t.value);if(t.matches("[data-text]"))this.setText(t.dataset.text,t.value);if(t.matches("[data-crossover-select]"))this.setCrossoverSlot(Number(t.dataset.crossoverSelect),t.value);if(t.matches("[data-eq-number]"))this.setEqBand(t.dataset.field,Number(t.value));if(t.matches("[data-eq-copy-target]")){this.eqCopyTarget=Number(t.value);this.render()}if(t.matches("[data-target-preset]"))this.setTargetPreset(t.value);if(t.matches("[data-target-point]"))this.setTargetPoint(t.dataset.point,t.value);if(t.matches("[data-measurement-number]")){const value=t.value===""?null:Number(t.value);this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,value)}if(t.matches("[data-measurement-select]"))this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,t.value);if(t.matches("[data-measurement-text]"))this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,t.value)}
+ click(e){
+  const b=e.target.closest("[data-action]");if(!b)return;const a=b.dataset.action;
+  if(a==="view"){this.view=b.dataset.view;this.render()}
+  else if(a==="channel"){this.selected=Number(b.dataset.index||0);if(b.dataset.open)this.view=b.dataset.open;this.render()}
+  else if(a==="preset")this.setPreset(b.dataset.preset);
+  else if(a==="plus"||a==="minus"){const token=b.dataset.entity,step=Number(b.dataset.step||1),current=Number(this.valueForToken(token)||0),v=current+(a==="plus"?step:-step);this.setNumber(token,v)}
+  else if(a==="verify")this.toggleVerify(b.dataset.entity);
+  else if(a==="save-snapshot")this.saveSnapshot();
+  else if(a==="restore-snapshot")this.restoreSnapshot(b.dataset.snapshot);
+  else if(a==="delete-snapshot")this.deleteSnapshot(b.dataset.snapshot);
+  else if(a==="create-measurement")this.createMeasurement();
+  else if(a==="select-measurement")this.selectMeasurement(b.dataset.session);
+  else if(a==="measurement-complete")this.toggleMeasurementComplete(b.dataset.session,Number(b.dataset.channel));
+  else if(a==="delete-measurement")this.deleteMeasurement(b.dataset.session);
+  else if(a==="crossover-swap")this.swapCrossover();
+  else if(a==="crossover-pair")this.setCrossoverPair(b.dataset.a,b.dataset.b);
+  else if(a==="eq-channel")this.setEqChannel(b.dataset.index);
+  else if(a==="eq-band")this.setEqBandIndex(b.dataset.band);
+  else if(a==="eq-toggle")this.toggleEqBand();
+  else if(a==="eq-reset")this.resetEq();
+  else if(a==="eq-copy")this.copyEq();
+  else if(a==="sub-delay")this.applySubDelay(b.dataset.value);
+  else if(a==="sub-phase")this.applySubPhase(b.dataset.value);
+  else if(a==="sub-polarity")this.toggleSubPolarity();
+  else if(a==="sub-verify")this.toggleSubVerified();
+ }
+ change(e){
+  const t=e.target;
+  if(t.matches("[data-number]"))this.setNumber(t.dataset.number,t.value);
+  if(t.matches("[data-select]"))this.setSelect(t.dataset.select,t.value);
+  if(t.matches("[data-text]"))this.setText(t.dataset.text,t.value);
+  if(t.matches("[data-crossover-select]"))this.setCrossoverSlot(Number(t.dataset.crossoverSelect),t.value);
+  if(t.matches("[data-eq-number]"))this.setEqBand(t.dataset.field,Number(t.value));
+  if(t.matches("[data-eq-copy-target]")){this.eqCopyTarget=Number(t.value);this.render()}
+  if(t.matches("[data-target-preset]"))this.setTargetPreset(t.value);
+  if(t.matches("[data-target-point]"))this.setTargetPoint(t.dataset.point,t.value);
+  if(t.matches("[data-sub-select]"))this.setSubSelection(t.dataset.subSelect,t.value);
+  if(t.matches("[data-sub-config]"))this.setSubConfig(t.dataset.subConfig,t.value);
+  if(t.matches("[data-measurement-number]")){const value=t.value===""?null:Number(t.value);this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,value)}
+  if(t.matches("[data-measurement-select]"))this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,t.value);
+  if(t.matches("[data-measurement-text]"))this.setMeasurement(t.dataset.session,Number(t.dataset.channel),t.dataset.field,t.value);
+ }
  header(){return`<header><div><i>DSP</i><section><small>WORKSPACE</small><strong>${esc(this.cfg().dsp_model||"Goldhorn P2 DSP Pro")}</strong><span>● Tuning assistant online</span></section></div><div><i>★</i><section><small>ACTIVE PRESET</small><strong class="blue">${esc(this.activePreset())}</strong><span>${this.snapshotCount()} snapshots · ${this.measurementSessions().length} measurements</span></section></div><div><i>◎</i><section><small>REFERENCE</small><strong>${esc(this.reference())}</strong><span>${esc(this.referenceHint())}</span></section></div><div><i class="amber">↔</i><section><small>GOLDHORN LINK</small><strong>Manual transfer</strong><span>Direct control planned</span></section></div></header>`}
- render(){if(!this.shadowRoot)return;let ch=this.channels();if(this.selected>=ch.length)this.selected=0;const body=this.view==="channels"?channelsView(this,ch):this.view==="alignment"?alignmentView(this,ch):this.view==="crossover"?crossoverView(this,ch):this.view==="eq"?eqView(this,ch):this.view==="measurement"?measurementView(this,ch):this.view==="presets"?presetsView(this,ch):overview(this,ch);const version=this.cfg().version||"0.6.1",status=this.error?`Workspace error: ${this.error}`:this.loading?"Loading workspace…":"Internal tuning workspace";this.shadowRoot.innerHTML=`<link rel="stylesheet" href="/kcc_soundlab_static/soundlab.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/workspace.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/measurement.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/crossover.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/eq.css?v=${version}"><div class="shell"><aside><div class="brand"><h1><b>KCC</b> SoundLab</h1><p>${esc(this.cfg().dsp_model||"Goldhorn P2 DSP Pro")} · ${esc(this.cfg().vehicle||"Vehicle")}</p><small>v${version}</small></div><nav>${[["overview","Overview","◫"],["channels","Channels","◉"],["alignment","Time Alignment","◷"],["crossover","Crossover","⌁"],["eq","EQ","∿"],["measurement","Measurement","⌇"],["presets","Presets","★"]].map(x=>`<button class="${this.view===x[0]?"active":""}" data-action="view" data-view="${x[0]}"><i>${x[2]}</i>${x[1]}</button>`).join("")}</nav><div class="ha"><i></i><span><b>HA Connected</b><small>${esc(status)}</small></span></div></aside><main>${this.header()}${body}</main></div>`}}
+ render(){
+  if(!this.shadowRoot)return;let ch=this.channels();if(this.selected>=ch.length)this.selected=0;
+  const body=this.view==="channels"?channelsView(this,ch):this.view==="alignment"?alignmentView(this,ch):this.view==="crossover"?crossoverView(this,ch):this.view==="subwoofer"?subwooferView(this,ch):this.view==="eq"?eqView(this,ch):this.view==="measurement"?measurementView(this,ch):this.view==="presets"?presetsView(this,ch):overview(this,ch);
+  const version=this.cfg().version||"0.7.0",status=this.error?`Workspace error: ${this.error}`:this.loading?"Loading workspace…":"Internal tuning workspace";
+  this.shadowRoot.innerHTML=`<link rel="stylesheet" href="/kcc_soundlab_static/soundlab.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/workspace.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/measurement.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/crossover.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/subwoofer.css?v=${version}"><link rel="stylesheet" href="/kcc_soundlab_static/eq.css?v=${version}"><div class="shell"><aside><div class="brand"><h1><b>KCC</b> SoundLab</h1><p>${esc(this.cfg().dsp_model||"Goldhorn P2 DSP Pro")} · ${esc(this.cfg().vehicle||"Vehicle")}</p><small>v${version}</small></div><nav>${[["overview","Overview","◫"],["channels","Channels","◉"],["alignment","Time Alignment","◷"],["crossover","Crossover","⌁"],["subwoofer","Sub Alignment","◉"],["eq","EQ","∿"],["measurement","Measurement","⌇"],["presets","Presets","★"]].map(x=>`<button class="${this.view===x[0]?"active":""}" data-action="view" data-view="${x[0]}"><i>${x[2]}</i>${x[1]}</button>`).join("")}</nav><div class="ha"><i></i><span><b>HA Connected</b><small>${esc(status)}</small></span></div></aside><main>${this.header()}${body}</main></div>`;
+ }
+}
 customElements.get("kcc-soundlab-panel")||customElements.define("kcc-soundlab-panel",KCCSoundLabPanel);
