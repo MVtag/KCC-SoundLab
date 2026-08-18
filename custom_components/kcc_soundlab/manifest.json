@@ -1,7 +1,7 @@
 {
   "domain": "kcc_soundlab",
   "name": "KCC SoundLab",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "config_flow": true,
   "integration_type": "device",
   "documentation": "https://github.com/MVtag/KCC-SoundLab",
