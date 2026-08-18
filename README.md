@@ -2,30 +2,34 @@
 
 Home Assistant based car-audio DSP tuning, measurement and calibration toolkit.
 
-KCC SoundLab is being built around the current KCC car-audio setup with **Goldhorn P2 DSP Pro** as the first supported DSP. The long-term goal is a guided tuning environment for channel setup, crossover, time alignment, measurement, EQ, presets and eventually controlled DSP write-back.
+KCC SoundLab is being built around the current KCC car-audio setup with **Goldhorn P2 DSP Pro** as the first supported DSP. The long-term goal is a guided tuning environment for channel setup, crossover, time alignment, subwoofer alignment, measurement, EQ, presets and eventually controlled DSP write-back.
 
-> **v0.6 is a tuning, crossover, measurement and EQ assistant.** It stores tuning data inside the integration, but it does not yet write settings directly to the Goldhorn DSP.
+> **v0.7 is a tuning, crossover, subwoofer-alignment, measurement and EQ assistant.** It stores tuning data inside the integration, but it does not yet write settings directly to the Goldhorn DSP.
 
-## v0.6 features
+## v0.7 features
 
 - Configure a Goldhorn P2 DSP Pro workspace from the Home Assistant UI.
 - Model 1–12 active outputs while keeping Home Assistant clean with only two status entities.
 - Edit channel name, speaker, role and physical location directly in SoundLab.
 - Store gain, phase, polarity, HPF and LPF settings in the internal workspace.
-- Automatically calculate physical time-alignment delay from the furthest speaker.
+- Automatically calculate physical time-alignment delay from the furthest measured speaker.
 - Add HolmImpulse fine correction per channel and track polarity/alignment verification.
 - Save up to 20 complete tuning snapshots.
 - **Measurement Center** with up to 20 persistent HolmImpulse measurement sessions.
 - **Crossover Lab** for two-output electrical handoff setup and comparison.
+- **Sub Alignment** workspace for dedicated sub ↔ front/midbass timing and phase work.
+- Sub Alignment automatically prefers Midbass/Woofer channels as front references and supports one- or two-reference workflows.
+- Guided **Sub Null Method** workflow: crossover setup → physical timing → baseline measurement → temporary polarity inversion → delay sweep → restore/fine-phase → verification.
+- Configurable sub fine-delay sweep span and step, with candidate final-delay preview before applying.
+- Phase candidate buttons plus polarity toggle for controlled acoustic comparison.
+- Crossover-cycle helpers show full-cycle, 180°, 90° and degrees-per-ms values at the current sub/front crossover region.
+- Measurement evidence status shows whether the selected sub/reference outputs have been measured in one SoundLab session.
+- Final Sub Alignment settings reuse the existing channel phase/polarity/fine-delay/alignment fields and are therefore included in normal tuning snapshots.
 - **EQ / Target Curve** workspace with 31 EQ bands per output.
 - Each EQ band stores enabled state, frequency, gain and Q.
 - Electrical EQ preview on a logarithmic frequency graph.
 - Global target curve overlay with Flat, KCC SQ Draft, Warm and Custom modes.
-- Six editable target-curve gain anchors from 20 Hz to 20 kHz.
-- Copy all EQ bands from one output to another.
-- Reset one output back to a flat 31-band EQ.
-- EQ and target curve are included in tuning snapshots.
-- Compact status entity exposes active EQ-band count and current target curve without adding new parameter entities.
+- Copy/reset EQ tools and complete snapshot coverage.
 - Open SoundLab directly from the Home Assistant sidebar.
 
 ## Workspaces
@@ -34,6 +38,7 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 - **Channels** – channel setup, gain/phase/polarity and per-channel filter controls.
 - **Time Alignment** – physical distance, HolmImpulse fine correction, verification and final delay.
 - **Crossover** – paired-output filter comparison, handoff analysis and direct HPF/LPF editing.
+- **Sub Alignment** – dedicated subwoofer null/sum workflow, delay sweep, phase/polarity and verification.
 - **EQ** – 31-band channel EQ, electrical preview, copy/reset tools and target curve.
 - **Measurement** – HolmImpulse sessions, channel-by-channel results and arrival comparison.
 - **Presets** – save, restore and delete complete tuning snapshots including EQ/target data.
@@ -52,7 +57,7 @@ KCC SoundLab is being built around the current KCC car-audio setup with **Goldho
 
 ### Updating from earlier versions
 
-The internal workspace remains backward compatible with existing channel/tuning and measurement data. When upgrading to v0.6, each existing output receives a flat default 31-band EQ and the target curve defaults to Flat. Existing gain, crossover, phase, time-alignment, measurement and snapshot data remain intact.
+The internal workspace remains backward compatible with existing channel/tuning, measurement and EQ data. v0.7 does not add a storage migration: Sub Alignment uses the existing phase, polarity, fine-delay, crossover and alignment-verification values already stored on each channel.
 
 No new Home Assistant parameter entities are created.
 
@@ -66,7 +71,7 @@ No new Home Assistant parameter entities are created.
 | OUT D | BLAM 165 LSQ R | Midbass | Front right door |
 | OUT E | BLAM SuperSub12 | Subwoofer | Boot / trunk |
 
-All channel names, speakers, roles and locations are editable from the Channels workspace. The backend supports up to 12 active outputs.
+For this profile, Sub Alignment defaults to **OUT E** as the subwoofer and prefers **OUT C + OUT D** as the two front/midbass references.
 
 ## Time alignment
 
@@ -86,20 +91,31 @@ The handoff is classified as **Matched**, **Gap** or **Overlap** using the elect
 
 The plotted curves are setup sketches based on filter frequency and nominal dB/oct slope. They are not acoustic predictions. Final crossover decisions must be verified from the measured summed response and phase after installation.
 
+## Sub Alignment
+
+Sub Alignment is designed for the final acoustic handoff between the subwoofer and the front/midbass system.
+
+The guided Null Method is intentionally deliberate:
+
+1. Set the intended sub ↔ front crossover.
+2. Establish the normal physical time-alignment baseline.
+3. Measure the sub and selected reference outputs with the same HolmImpulse timing setup.
+4. Temporarily invert sub polarity relative to the working setting.
+5. Sweep sub fine-delay and find the deepest cancellation/null around crossover.
+6. Restore the intended polarity and verify the strongest, smoothest summed response.
+7. Use phase/fine-delay only as needed, mark the sub verified and save a tuning snapshot.
+
+The sweep buttons change the stored sub `fine_delay_ms` only when explicitly pressed. SoundLab never runs an automatic delay sweep or writes settings to Goldhorn on its own.
+
+If the crossover is not configured or physical distances are incomplete, Sub Alignment stays in **planning mode** and clearly warns that sweep values are not final tuning values.
+
 ## EQ / Target Curve
 
-The P2 DSP Pro workspace uses 31 EQ bands per output. SoundLab stores the following values for each band:
+The P2 DSP Pro workspace uses 31 EQ bands per output. SoundLab stores enabled state, frequency, gain and Q for each band.
 
-- enabled / disabled,
-- frequency from 20 Hz to 20 kHz,
-- gain from -12 dB to +12 dB,
-- Q from 0.1 to 20.
+The EQ graph is an **electrical preview** used for workspace planning. It is not a substitute for an acoustic measurement. The target curve is a separate reference overlay and does not automatically apply EQ.
 
-The EQ graph is an **electrical preview** used for workspace planning. It is not a substitute for an acoustic measurement.
-
-The target curve is a separate reference overlay. The built-in **KCC SQ Draft** and **Warm** curves are starting references only; they do not automatically apply EQ. Editing any target point changes the target mode to Custom.
-
-A complete tuning snapshot stores the channel EQ and the active target curve alongside crossover, gain, phase and time alignment.
+A complete tuning snapshot stores the channel EQ and active target curve alongside crossover, gain, phase and time alignment.
 
 ## Measurement Center
 
@@ -117,7 +133,7 @@ Frontend module imports are versioned with the integration version. CI validates
 
 ## Planned next steps
 
-- Subwoofer phase/alignment workflow with guided comparisons.
+- Full end-to-end Tuning Wizard that links channel setup, polarity, time alignment, crossover, Sub Alignment, EQ, verification and snapshot save.
 - Measurement-aware EQ suggestions after real measurement data is available.
 - Import/compare measurement files and tuning sessions.
 - Configurable car/channel-map positions beyond the first five-channel profile.
