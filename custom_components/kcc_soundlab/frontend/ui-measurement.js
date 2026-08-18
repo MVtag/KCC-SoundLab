@@ -1,4 +1,4 @@
-import{MEASUREMENT_POSITIONS,MEASUREMENT_POLARITY,esc}from"./ui-utils.js?v=0.4.0";
+import{MEASUREMENT_POSITIONS,MEASUREMENT_POLARITY,esc}from"./ui-utils.js?v=0.5.0";
 const fmtDate=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString()};
 const num=(value,dec=3)=>value===null||value===undefined||value===""?"":Number(value).toFixed(dec);
 const resultFor=(session,index)=>session?.results?.find(x=>Number(x.channel_index)===index)||session?.results?.[index]||{};
