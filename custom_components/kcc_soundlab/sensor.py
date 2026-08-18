@@ -42,6 +42,12 @@ class KCCStatusSensor(KCCDSPBaseEntity, SensorEntity):
         measured_in_active = 0
         if active is not None:
             measured_in_active = sum(bool(item.get("completed")) for item in active.get("results", []))
+        active_eq_bands = sum(
+            bool(band.get("enabled")) and abs(float(band.get("gain_db", 0.0))) > 0.001
+            for channel in channels
+            for band in channel.get("eq_bands", [])
+            if isinstance(band, dict)
+        )
         return {
             **super().extra_state_attributes,
             "preset": self._soundlab_state.preset,
@@ -49,6 +55,8 @@ class KCCStatusSensor(KCCDSPBaseEntity, SensorEntity):
             "measured_outputs": sum(float(item.get("distance_cm", 0.0)) > 0 for item in channels),
             "polarity_verified": sum(bool(item.get("polarity_verified")) for item in channels),
             "alignment_verified": sum(bool(item.get("alignment_verified")) for item in channels),
+            "active_eq_bands": active_eq_bands,
+            "target_curve": str(self._soundlab_state.target_curve.get("preset", "Flat")),
             "tuning_snapshots": len(self._soundlab_state.snapshots),
             "measurement_sessions": len(self._soundlab_state.measurement_sessions),
             "active_measurement_progress": f"{measured_in_active}/{self._soundlab_state.channel_count}" if active else "none",

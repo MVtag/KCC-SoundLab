@@ -10,7 +10,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
-from .model import KCCDSPState, MEASUREMENT_POSITIONS
+from .model import KCCDSPState, MEASUREMENT_POSITIONS, TARGET_CURVE_OPTIONS
 
 
 def _state_for_message(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> KCCDSPState | None:
@@ -49,6 +49,101 @@ def websocket_set_channel(hass: HomeAssistant, connection: Any, msg: dict[str, A
         state.set_channel_value(msg["channel"], msg["field"], msg["value"])
     except ValueError as err:
         _send_value_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command({
+    vol.Required("type"): "kcc_soundlab/set_eq_band",
+    vol.Required("entry_id"): str,
+    vol.Required("channel"): vol.Coerce(int),
+    vol.Required("band"): vol.Coerce(int),
+    vol.Required("field"): str,
+    vol.Required("value"): vol.Any(bool, int, float),
+})
+def websocket_set_eq_band(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> None:
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.set_eq_band(msg["channel"], msg["band"], msg["field"], msg["value"])
+    except (TypeError, ValueError) as err:
+        _send_value_error(connection, msg, ValueError(str(err)))
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command({
+    vol.Required("type"): "kcc_soundlab/reset_eq",
+    vol.Required("entry_id"): str,
+    vol.Required("channel"): vol.Coerce(int),
+})
+def websocket_reset_eq(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> None:
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.reset_eq(msg["channel"])
+    except ValueError as err:
+        _send_value_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command({
+    vol.Required("type"): "kcc_soundlab/copy_eq",
+    vol.Required("entry_id"): str,
+    vol.Required("source"): vol.Coerce(int),
+    vol.Required("target"): vol.Coerce(int),
+})
+def websocket_copy_eq(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> None:
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.copy_eq(msg["source"], msg["target"])
+    except ValueError as err:
+        _send_value_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command({
+    vol.Required("type"): "kcc_soundlab/set_target_curve_preset",
+    vol.Required("entry_id"): str,
+    vol.Required("preset"): vol.In(TARGET_CURVE_OPTIONS),
+})
+def websocket_set_target_curve_preset(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> None:
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.set_target_curve_preset(msg["preset"])
+    except ValueError as err:
+        _send_value_error(connection, msg, err)
+        return
+    connection.send_result(msg["id"], state.snapshot())
+
+
+@callback
+@websocket_api.websocket_command({
+    vol.Required("type"): "kcc_soundlab/set_target_curve_point",
+    vol.Required("entry_id"): str,
+    vol.Required("point"): vol.Coerce(int),
+    vol.Required("gain_db"): vol.Coerce(float),
+})
+def websocket_set_target_curve_point(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> None:
+    state = _state_for_message(hass, connection, msg)
+    if state is None:
+        return
+    try:
+        state.set_target_curve_point(msg["point"], msg["gain_db"])
+    except (TypeError, ValueError) as err:
+        _send_value_error(connection, msg, ValueError(str(err)))
         return
     connection.send_result(msg["id"], state.snapshot())
 
@@ -186,6 +281,11 @@ def websocket_delete_measurement_session(hass: HomeAssistant, connection: Any, m
 def async_setup_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_get_state)
     websocket_api.async_register_command(hass, websocket_set_channel)
+    websocket_api.async_register_command(hass, websocket_set_eq_band)
+    websocket_api.async_register_command(hass, websocket_reset_eq)
+    websocket_api.async_register_command(hass, websocket_copy_eq)
+    websocket_api.async_register_command(hass, websocket_set_target_curve_preset)
+    websocket_api.async_register_command(hass, websocket_set_target_curve_point)
     websocket_api.async_register_command(hass, websocket_set_preset)
     websocket_api.async_register_command(hass, websocket_save_snapshot)
     websocket_api.async_register_command(hass, websocket_restore_snapshot)
