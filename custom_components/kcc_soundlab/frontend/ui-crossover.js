@@ -1,4 +1,4 @@
-import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.5.0";
+import{FILTERS,SLOPES,formatHz,esc}from"./ui-utils.js?v=0.6.0";
 
 const ROLE_ORDER={"Subwoofer":0,"Woofer":1,"Midbass":2,"Midrange":3,"Full-range":4,"Tweeter":5,"Center":4,"Rear fill":4,"DSP output":4};
 const FREQ_TICKS=[20,50,100,200,500,1000,2000,5000,10000,20000];
