@@ -133,6 +133,13 @@ def _sweep_for(session: dict[str, Any], sweep_id: str) -> dict[str, Any]:
 
 
 def _public_sweep(sweep: dict[str, Any]) -> dict[str, Any]:
+    """Return frontend-safe sweep data.
+
+    Pending numeric best values are sent as a non-numeric marker instead of JSON
+    null because the v0.6.10 panel deliberately converts these fields with
+    Number(...); Number(null) would otherwise be interpreted as a real 0 ms null.
+    """
+    pending = "pending"
     return {
         "id": str(sweep.get("id", "")),
         "created_at": str(sweep.get("created_at", "")),
@@ -143,10 +150,10 @@ def _public_sweep(sweep: dict[str, Any]) -> dict[str, Any]:
         "start_polarity": str(sweep.get("start_polarity", "Normal")),
         "status": str(sweep.get("status", "active")),
         "points": [dict(item) for item in sweep.get("points", [])],
-        "auto_best_fine_delay_ms": sweep.get("auto_best_fine_delay_ms"),
-        "auto_best_level_db": sweep.get("auto_best_level_db"),
-        "best_fine_delay_ms": sweep.get("best_fine_delay_ms"),
-        "best_level_db": sweep.get("best_level_db"),
+        "auto_best_fine_delay_ms": sweep.get("auto_best_fine_delay_ms") if sweep.get("auto_best_fine_delay_ms") is not None else pending,
+        "auto_best_level_db": sweep.get("auto_best_level_db") if sweep.get("auto_best_level_db") is not None else pending,
+        "best_fine_delay_ms": sweep.get("best_fine_delay_ms") if sweep.get("best_fine_delay_ms") is not None else pending,
+        "best_level_db": sweep.get("best_level_db") if sweep.get("best_level_db") is not None else pending,
         "final_fine_delay_ms": sweep.get("final_fine_delay_ms"),
         "final_phase_deg": sweep.get("final_phase_deg"),
         "final_polarity": sweep.get("final_polarity"),
