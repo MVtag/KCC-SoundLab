@@ -20,6 +20,7 @@ from .const import (
     VERSION,
 )
 from .model import KCCDSPState
+from .sub_null_api import async_setup_sub_null_api
 from .websocket_api import async_setup_websocket_api
 
 PANEL_URL = "kcc-soundlab"
@@ -91,6 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if not domain_data.get(WEBSOCKET_REGISTERED):
         async_setup_websocket_api(hass)
+        async_setup_sub_null_api(hass)
         domain_data[WEBSOCKET_REGISTERED] = True
 
     await _async_cleanup_legacy_entities(hass, entry)
