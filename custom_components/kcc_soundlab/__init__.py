@@ -26,6 +26,7 @@ from .websocket_api import async_setup_websocket_api
 PANEL_URL = "kcc-soundlab"
 PANEL_ELEMENT = "kcc-soundlab-panel"
 STATIC_URL = "/kcc_soundlab_static"
+STATIC_VERSION_URL = f"{STATIC_URL}_{VERSION.replace('.', '_')}"
 STATIC_REGISTERED = "static_registered"
 WEBSOCKET_REGISTERED = "websocket_registered"
 
@@ -57,7 +58,10 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
     if not domain_data.get(STATIC_REGISTERED):
         frontend_dir = Path(__file__).parent / "frontend"
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(STATIC_URL, str(frontend_dir), False)]
+            [
+                StaticPathConfig(STATIC_URL, str(frontend_dir), False),
+                StaticPathConfig(STATIC_VERSION_URL, str(frontend_dir), False),
+            ]
         )
         domain_data[STATIC_REGISTERED] = True
 
@@ -70,7 +74,7 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
         webcomponent_name=PANEL_ELEMENT,
         sidebar_title="KCC SoundLab",
         sidebar_icon="mdi:tune-vertical",
-        module_url=f"{STATIC_URL}/kcc-soundlab-panel.js?v={VERSION}",
+        module_url=f"{STATIC_VERSION_URL}/kcc-soundlab-panel.js?v={VERSION}",
         config={
             "entry_id": entry.entry_id,
             "dsp_model": entry.data[CONF_DSP_MODEL],
