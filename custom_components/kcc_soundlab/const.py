@@ -2,7 +2,7 @@
 
 DOMAIN = "kcc_soundlab"
 NAME = "KCC SoundLab"
-VERSION = "0.6.22"
+VERSION = "0.6.23"
 
 CONF_DSP_MODEL = "dsp_model"
 CONF_VEHICLE = "vehicle"
