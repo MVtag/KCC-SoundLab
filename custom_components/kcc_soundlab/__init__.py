@@ -19,6 +19,7 @@ from .const import (
     PLATFORMS,
     VERSION,
 )
+from .house_curve_api import FlexibleKCCDSPState, async_setup_house_curve_api
 from .model import KCCDSPState
 from .sub_null_api import async_setup_sub_null_api
 from .websocket_api import async_setup_websocket_api
@@ -88,7 +89,9 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up KCC SoundLab from a config entry."""
-    state = KCCDSPState(hass, entry.entry_id, int(entry.data[CONF_CHANNEL_COUNT]))
+    state = FlexibleKCCDSPState(
+        hass, entry.entry_id, int(entry.data[CONF_CHANNEL_COUNT])
+    )
     await state.async_load()
 
     domain_data = hass.data.setdefault(DOMAIN, {})
@@ -97,6 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not domain_data.get(WEBSOCKET_REGISTERED):
         async_setup_websocket_api(hass)
         async_setup_sub_null_api(hass)
+        async_setup_house_curve_api(hass)
         domain_data[WEBSOCKET_REGISTERED] = True
 
     await _async_cleanup_legacy_entities(hass, entry)
