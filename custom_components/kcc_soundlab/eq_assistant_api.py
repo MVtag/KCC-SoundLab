@@ -22,6 +22,7 @@ MIN_GAIN_DB = -6.0
 MAX_GAIN_DB = 3.0
 MIN_Q = 0.45
 MAX_Q = 6.0
+SMOOTHING_OPTIONS = ("raw", "1/24", "1/12", "1/6")
 
 
 def _utc_now() -> str:
@@ -92,6 +93,13 @@ def _applies(session: dict[str, Any]) -> dict[str, Any]:
 
 def _apply_key(channel: dict[str, Any]) -> str:
     return str(channel.get("id", ""))
+
+
+def _has_frequency_response(session: dict[str, Any], channel: dict[str, Any]) -> bool:
+    responses = session.get("frequency_responses")
+    return isinstance(responses, dict) and isinstance(
+        responses.get(_apply_key(channel)), dict
+    )
 
 
 def _public_apply(item: Any) -> dict[str, Any] | None:
@@ -167,6 +175,13 @@ def websocket_apply_eq_assistant(
         channel = _validate_channel(state, channel_index)
         session = state.measurement_session(msg["session_id"])
         filters = _normalise_filters(msg["filters"])
+        smoothing = str(msg["smoothing"])
+        if smoothing not in SMOOTHING_OPTIONS:
+            raise ValueError("Unknown EQ Assistant smoothing mode")
+        if not _has_frequency_response(session, channel):
+            raise ValueError(
+                "Import a frequency response for this channel before applying EQ Assistant filters"
+            )
     except (TypeError, ValueError) as err:
         connection.send_error(msg["id"], "invalid_format", str(err))
         return
@@ -225,7 +240,7 @@ def websocket_apply_eq_assistant(
         "channel_index": channel_index,
         "channel_id": key,
         "output": output,
-        "smoothing": str(msg.get("smoothing", ""))[:24],
+        "smoothing": smoothing,
         "filter_count": len(filters),
         "band_indices": used_indices,
         "filters": filters,
