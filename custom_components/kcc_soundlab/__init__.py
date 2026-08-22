@@ -19,6 +19,7 @@ from .const import (
     PLATFORMS,
     VERSION,
 )
+from .frequency_response_api import async_setup_frequency_response_api
 from .house_curve_api import FlexibleKCCDSPState, async_setup_house_curve_api
 from .model import KCCDSPState
 from .sub_null_api import async_setup_sub_null_api
@@ -101,6 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_setup_websocket_api(hass)
         async_setup_sub_null_api(hass)
         async_setup_house_curve_api(hass)
+        async_setup_frequency_response_api(hass)
         domain_data[WEBSOCKET_REGISTERED] = True
 
     await _async_cleanup_legacy_entities(hass, entry)
