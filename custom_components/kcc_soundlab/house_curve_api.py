@@ -61,16 +61,18 @@ def _normalise_points(points: Any, *, strict: bool) -> list[dict[str, float]]:
         valid.append({"frequency_hz": round(frequency, 3), "gain_db": round(gain, 3)})
 
     valid.sort(key=lambda item: item["frequency_hz"])
-    for index in range(1, len(valid)):
-        if abs(valid[index]["frequency_hz"] - valid[index - 1]["frequency_hz"]) < 0.001:
+    unique: list[dict[str, float]] = []
+    for item in valid:
+        if unique and abs(item["frequency_hz"] - unique[-1]["frequency_hz"]) < 0.001:
             if strict:
                 raise ValueError("House Curve frequencies must be unique")
-            valid[index] = {}
-    valid = [item for item in valid if item]
+            unique[-1] = item
+            continue
+        unique.append(item)
 
-    if strict and len(valid) < MIN_HOUSE_CURVE_POINTS:
+    if strict and len(unique) < MIN_HOUSE_CURVE_POINTS:
         raise ValueError(f"House Curve must contain at least {MIN_HOUSE_CURVE_POINTS} unique points")
-    return valid
+    return unique
 
 
 class FlexibleKCCDSPState(KCCDSPState):
