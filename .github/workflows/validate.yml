@@ -38,12 +38,11 @@ jobs:
 
       - name: Validate frontend JavaScript
         run: |
-          node --check custom_components/kcc_soundlab/frontend/kcc-soundlab-panel.js
-          node --check custom_components/kcc_soundlab/frontend/ui-utils.js
-          node --check custom_components/kcc_soundlab/frontend/ui-views.js
-          node --check custom_components/kcc_soundlab/frontend/ui-measurement.js
-          node --check custom_components/kcc_soundlab/frontend/ui-crossover.js
-          node --check custom_components/kcc_soundlab/frontend/ui-eq.js
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done < <(find custom_components/kcc_soundlab/frontend -type f -name '*.js' -print0 | sort -z)
 
       - name: Validate frontend module cache consistency
         run: |
