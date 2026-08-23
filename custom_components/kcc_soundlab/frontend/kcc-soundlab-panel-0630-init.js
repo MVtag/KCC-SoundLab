@@ -7,12 +7,19 @@ if(ResponseElement&&!ResponseElement.prototype.__kccRepeatabilityStateInit0630){
  const proto=ResponseElement.prototype;
  proto.__kccRepeatabilityStateInit0630=true;
  const baseConnected=proto.connectedCallback;
- proto.connectedCallback=function(...args){
+ const baseLoad=proto.load;
+ const resetState=function(){
   this.repeatabilityRepeats=[];
   this.repeatabilityMax=4;
   this.repeatabilityBusy=false;
   this.repeatabilityMessage="";
   this.repeatabilityError="";
-  return baseConnected?.apply(this,args);
+ };
+ proto.connectedCallback=function(...args){resetState.call(this);return baseConnected?.apply(this,args)};
+ proto.load=async function(...args){
+  this.repeatabilityRepeats=[];
+  this.repeatabilityMessage="";
+  this.repeatabilityError="";
+  return baseLoad.apply(this,args);
  };
 }
