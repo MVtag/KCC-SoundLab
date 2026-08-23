@@ -78,7 +78,7 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
         webcomponent_name=PANEL_ELEMENT,
         sidebar_title="KCC SoundLab",
         sidebar_icon="mdi:tune-vertical",
-        module_url=f"{STATIC_VERSION_URL}/kcc-soundlab-panel-0630.js?v={VERSION}",
+        module_url=f"{STATIC_VERSION_URL}/kcc-soundlab-panel-0630-init.js?v={VERSION}",
         config={
             "entry_id": entry.entry_id,
             "dsp_model": entry.data[CONF_DSP_MODEL],
