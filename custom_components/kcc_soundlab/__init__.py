@@ -23,6 +23,7 @@ from .eq_assistant_api import async_setup_eq_assistant_api
 from .frequency_response_api import async_setup_frequency_response_api
 from .house_curve_api import FlexibleKCCDSPState, async_setup_house_curve_api
 from .model import KCCDSPState
+from .repeatability_api import async_setup_repeatability_api
 from .sub_null_api import async_setup_sub_null_api
 from .websocket_api import async_setup_websocket_api
 
@@ -77,7 +78,7 @@ async def _async_register_frontend(hass: HomeAssistant, entry: ConfigEntry) -> N
         webcomponent_name=PANEL_ELEMENT,
         sidebar_title="KCC SoundLab",
         sidebar_icon="mdi:tune-vertical",
-        module_url=f"{STATIC_VERSION_URL}/kcc-soundlab-panel-0629.js?v={VERSION}",
+        module_url=f"{STATIC_VERSION_URL}/kcc-soundlab-panel-0630-init.js?v={VERSION}",
         config={
             "entry_id": entry.entry_id,
             "dsp_model": entry.data[CONF_DSP_MODEL],
@@ -104,6 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_setup_sub_null_api(hass)
         async_setup_house_curve_api(hass)
         async_setup_frequency_response_api(hass)
+        async_setup_repeatability_api(hass)
         async_setup_eq_assistant_api(hass)
         domain_data[WEBSOCKET_REGISTERED] = True
 
