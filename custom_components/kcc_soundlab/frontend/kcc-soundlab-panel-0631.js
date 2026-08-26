@@ -35,12 +35,8 @@ const targetValue = (points, frequency) => {
   const sorted = [...points].sort(
     (a, b) => Number(a.frequency_hz) - Number(b.frequency_hz),
   );
-  if (frequency <= Number(sorted[0].frequency_hz)) {
-    return Number(sorted[0].gain_db) || 0;
-  }
-  if (frequency >= Number(sorted.at(-1).frequency_hz)) {
-    return Number(sorted.at(-1).gain_db) || 0;
-  }
+  if (frequency <= Number(sorted[0].frequency_hz)) return Number(sorted[0].gain_db) || 0;
+  if (frequency >= Number(sorted.at(-1).frequency_hz)) return Number(sorted.at(-1).gain_db) || 0;
   for (let index = 0; index < sorted.length - 1; index += 1) {
     const left = sorted[index];
     const right = sorted[index + 1];
@@ -131,9 +127,7 @@ const downsample = (points, maxPoints = 256) => {
       cursor + 1 < points.length
       && Math.abs(Math.log(points[cursor + 1].frequency_hz) - Math.log(wanted))
         <= Math.abs(Math.log(points[cursor].frequency_hz) - Math.log(wanted))
-    ) {
-      cursor += 1;
-    }
+    ) cursor += 1;
     const point = points[cursor];
     const key = point.frequency_hz.toFixed(3);
     if (!used.has(key)) {
@@ -166,9 +160,7 @@ const parseRepeatFile = (text) => {
   for (const point of raw) {
     if (unique.length && Math.abs(point.frequency_hz - unique.at(-1).frequency_hz) < 0.001) {
       unique[unique.length - 1] = point;
-    } else {
-      unique.push(point);
-    }
+    } else unique.push(point);
   }
   if (unique.length < 5) {
     throw new Error("No usable REW frequency response found. Export frequency + SPL as text.");
@@ -176,26 +168,30 @@ const parseRepeatFile = (text) => {
   return { originalCount: unique.length, points: downsample(unique) };
 };
 
-if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0631) {
+if (ResponseElement && !ResponseElement.prototype.__kccMeasurementEvidence0634) {
   const proto = ResponseElement.prototype;
-  proto.__kccMeasurementRepeatability0631 = true;
+  proto.__kccMeasurementEvidence0634 = true;
 
   const baseConnected = proto.connectedCallback;
   const baseLoad = proto.load;
   const baseRender = proto.render;
   const baseClick = proto.onClick;
   const baseChange = proto.onChange;
+  const baseImportFile = proto.importFile;
+  const baseClear = proto.clear;
 
-  const resetRepeatabilityState = function resetRepeatabilityState() {
+  const resetEvidenceState = function resetEvidenceState() {
     this.repeatabilityRepeats = [];
     this.repeatabilityMax = 4;
     this.repeatabilityBusy = false;
     this.repeatabilityMessage = "";
     this.repeatabilityError = "";
+    this.multiPositionMeasurements = [];
+    this.multiPositionError = "";
   };
 
   proto.connectedCallback = function connectedCallback(...args) {
-    resetRepeatabilityState.call(this);
+    resetEvidenceState.call(this);
     return baseConnected?.apply(this, args);
   };
 
@@ -219,6 +215,27 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
       this.repeatabilityRepeats = [];
       this.repeatabilityError = String(error?.message || error);
     }
+  };
+
+  proto.loadMultiPosition = async function loadMultiPosition() {
+    const panel = this.panel();
+    const channel = this.selectedChannel();
+    if (!panel?.send) {
+      this.multiPositionMeasurements = [];
+      return;
+    }
+    try {
+      const data = await panel.send("kcc_soundlab/get_multi_position_responses", { channel });
+      this.multiPositionMeasurements = Array.isArray(data?.measurements) ? data.measurements : [];
+      this.multiPositionError = "";
+    } catch (error) {
+      this.multiPositionMeasurements = [];
+      this.multiPositionError = String(error?.message || error);
+    }
+  };
+
+  proto.loadEvidence = async function loadEvidence() {
+    await Promise.all([this.loadRepeatability(), this.loadMultiPosition()]);
     this.render();
   };
 
@@ -226,8 +243,24 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
     this.repeatabilityRepeats = [];
     this.repeatabilityMessage = "";
     this.repeatabilityError = "";
+    this.multiPositionMeasurements = [];
+    this.multiPositionError = "";
     const result = await baseLoad.apply(this, args);
-    await this.loadRepeatability();
+    await this.loadEvidence();
+    return result;
+  };
+
+  proto.importFile = async function importFile(file) {
+    const result = await baseImportFile.call(this, file);
+    await this.loadMultiPosition();
+    this.render();
+    return result;
+  };
+
+  proto.clear = async function clear() {
+    const result = await baseClear.call(this);
+    await this.loadMultiPosition();
+    this.render();
     return result;
   };
 
@@ -254,9 +287,7 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
         if (Number.isFinite(other)) errors.push(Math.abs(other - point.delta_db));
       }
     }
-    if (!errors.length) {
-      return { meanSpread: null, within15: null, grade: "Need repeats" };
-    }
+    if (!errors.length) return { meanSpread: null, within15: null, grade: "Need repeats" };
     const meanSpread = errors.reduce((sum, value) => sum + value, 0) / errors.length;
     const within15 = (errors.filter((value) => value <= 1.5).length / errors.length) * 100;
     const grade = meanSpread <= 1 && within15 >= 80
@@ -418,6 +449,153 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
     else host.append(card);
   };
 
+  proto.multiPositionContext = function multiPositionContext() {
+    const sessionId = this.sessionId();
+    const all = this.multiPositionMeasurements || [];
+    const current = all.find((item) => String(item.session_id) === sessionId);
+    const fallback = this.panel()?.workspace?.measurement_sessions?.find?.(
+      (item) => String(item.id) === sessionId,
+    );
+    const position = String(current?.position || fallback?.position || "Driver seat");
+    const byPosition = new Map();
+
+    for (const item of all) {
+      const itemSession = String(item.session_id || "");
+      const itemPosition = String(item.position || "Other");
+      if (itemSession === sessionId || itemPosition === position) continue;
+      const existing = byPosition.get(itemPosition);
+      const existingTime = existing ? new Date(existing.created_at || 0).getTime() : -Infinity;
+      const candidateTime = new Date(item.created_at || 0).getTime();
+      if (!existing || candidateTime >= existingTime) byPosition.set(itemPosition, item);
+    }
+
+    return { position, others: [...byPosition.values()] };
+  };
+
+  proto.multiPositionComparisons = function multiPositionComparisons() {
+    const target = this.panel()?.workspace?.target_curve || { points: [] };
+    const smoothing = this.selectedSmoothing?.() || "raw";
+    return this.multiPositionContext().others
+      .map((item) => ({ item, points: comparisonFor(item.response, target, smoothing) }))
+      .filter((entry) => entry.points.length);
+  };
+
+  proto.multiPositionStats = function multiPositionStats() {
+    const target = this.panel()?.workspace?.target_curve || { points: [] };
+    const smoothing = this.selectedSmoothing?.() || "raw";
+    const primary = comparisonFor(this.response, target, smoothing);
+    const others = this.multiPositionComparisons();
+    if (!primary.length || !others.length) {
+      return { meanSpread: null, within15: null, grade: "Need another position" };
+    }
+    const errors = [];
+    for (const entry of others) {
+      for (const point of primary) {
+        const other = interpolate(entry.points, point.frequency_hz);
+        if (Number.isFinite(other)) errors.push(Math.abs(other - point.delta_db));
+      }
+    }
+    if (!errors.length) {
+      return { meanSpread: null, within15: null, grade: "Need another position" };
+    }
+    const meanSpread = errors.reduce((sum, value) => sum + value, 0) / errors.length;
+    const within15 = (errors.filter((value) => value <= 1.5).length / errors.length) * 100;
+    const grade = meanSpread <= 1 && within15 >= 80
+      ? "Strong"
+      : meanSpread <= 1.5 && within15 >= 65
+        ? "Good"
+        : "Review";
+    return { meanSpread, within15, grade };
+  };
+
+  proto.multiPositionFeatureMatches = function multiPositionFeatureMatches(
+    item,
+    comparisons = this.multiPositionComparisons(),
+  ) {
+    const wantedSign = item.originalGain < 0 ? 1 : -1;
+    const frequency = Number(item.originalFrequency || item.frequency);
+    let matches = 0;
+    for (const entry of comparisons) {
+      const found = entry.points.some((point) => (
+        Math.abs(Math.log2(point.frequency_hz / frequency)) <= 0.25
+        && Math.sign(point.delta_db) === wantedSign
+        && Math.abs(point.delta_db) >= 1.5
+      ));
+      if (found) matches += 1;
+    }
+    return { matches, total: comparisons.length };
+  };
+
+  proto.injectMultiPosition = function injectMultiPosition() {
+    const host = this.querySelector(".response-card");
+    if (!host || !this.response) return;
+
+    const context = this.multiPositionContext();
+    const comparisons = this.multiPositionComparisons();
+    const stats = this.multiPositionStats();
+    const confidenceRows = this.confidenceRows?.() || [];
+    const positionCount = context.others.length + 1;
+    const heading = context.others.length
+      ? `${positionCount} positions compared`
+      : "Add another measurement position";
+
+    const featureChips = confidenceRows.length && context.others.length
+      ? confidenceRows.map((item) => {
+        const result = this.multiPositionFeatureMatches(item, comparisons);
+        const color = result.total && result.matches === result.total
+          ? "#78d39a"
+          : result.matches
+            ? "#e2be67"
+            : "#ef9a9a";
+        return `<span style="border:1px solid #30485c;border-radius:10px;padding:4px 7px;color:${color}">${Math.round(item.originalFrequency)} Hz · ${result.matches}/${result.total} positions</span>`;
+      }).join("")
+      : "";
+
+    const positionRows = context.others.map((item) => `
+      <div style="display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;border-top:1px solid #21323d;padding:8px 0">
+        <b style="color:#9dc8ea">${safe(item.position)}</b>
+        <span>${safe(item.session_name)}<small style="display:block;color:#788b99">${safe(item.response?.source_name || "REW response")}</small></span>
+        <span style="color:#788b99">${Number(item.repeat_count) || 0} repeats</span>
+      </div>
+    `).join("");
+
+    const error = this.multiPositionError
+      ? `<div style="border:1px solid #713b3b;background:#281313;color:#ef9a9a;border-radius:8px;padding:9px;margin-top:10px">${safe(this.multiPositionError)}</div>`
+      : "";
+
+    const card = document.createElement("div");
+    card.className = "difference-panel";
+    card.dataset.multiPositionEvidence = "true";
+    card.style.borderColor = "#3e4f74";
+    card.innerHTML = `
+      <div class="difference-head">
+        <div><small>MULTI-POSITION FOUNDATION · READ ONLY</small><strong>${heading}</strong></div>
+        <span>Current: ${safe(context.position)}</span>
+      </div>
+      <div class="response-stats">
+        <div><small>POSITIONS</small><strong>${positionCount}</strong><span>Current + ${context.others.length} other</span></div>
+        <div><small>MEAN SPREAD</small><strong>${stats.meanSpread == null ? "—" : `${stats.meanSpread.toFixed(1)} dB`}</strong><span>Other positions vs current</span></div>
+        <div><small>WITHIN ±1.5 dB</small><strong>${stats.within15 == null ? "—" : `${stats.within15.toFixed(0)}%`}</strong><span>Cross-position points</span></div>
+        <div><small>AGREEMENT</small><strong>${safe(stats.grade)}</strong><span>Read-only evidence</span></div>
+      </div>
+      ${featureChips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:8px">${featureChips}</div>` : ""}
+      <div style="margin-top:10px">
+        ${positionRows || '<p class="muted-copy">Create another Measurement session with a different listening position and import a primary REW response for the same output. Same-position repeats stay in Measurement Repeatability.</p>'}
+      </div>
+      ${error}
+      <p class="muted-copy" style="margin-top:10px">Multi-Position is evidence only in v0.6.34. It does not change Confidence, Guards, Prediction, Apply Preview or SoundLab EQ.</p>
+    `;
+
+    const repeatability = host.querySelector("[data-measurement-repeatability]");
+    const controlledApply = [...host.querySelectorAll(".difference-panel")]
+      .find((panel) => panel.querySelector("[data-eq-assistant-apply]"));
+    const meta = host.querySelector(".response-meta");
+    if (repeatability) repeatability.after(card);
+    else if (controlledApply) controlledApply.before(card);
+    else if (meta) meta.before(card);
+    else host.append(card);
+  };
+
   proto.addRepeatFiles = async function addRepeatFiles(files) {
     const panel = this.panel();
     const session = this.sessionId();
@@ -492,6 +670,8 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
       this.repeatabilityRepeats = [];
       this.repeatabilityMessage = "";
       this.repeatabilityError = "";
+      this.multiPositionMeasurements = [];
+      this.multiPositionError = "";
     }
     return baseChange.call(this, event);
   };
@@ -508,6 +688,7 @@ if (ResponseElement && !ResponseElement.prototype.__kccMeasurementRepeatability0
   proto.render = function render(...args) {
     const result = baseRender.apply(this, args);
     this.injectRepeatability();
+    this.injectMultiPosition();
     this.decorateConfidenceRepeatability();
     return result;
   };
