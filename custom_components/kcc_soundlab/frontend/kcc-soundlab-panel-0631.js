@@ -152,9 +152,43 @@ const recommendationPalette = (level) => {
   return { border: "#6b5424", background: "#302611", color: "#f1ce78" };
 };
 
-if (ResponseElement && !ResponseElement.prototype.__kccRecommendationExplanation0638) {
+const readinessFor = (results) => {
+  const active = results.filter((item) => item.active);
+  const recommended = active.filter((item) => item.recommendation === "Recommended").length;
+  if (!active.length) {
+    return {
+      level: "No active filters",
+      color: "#9fb0bc",
+      count: "0 active filters",
+      detail: "Select at least one EQ suggestion before opening Apply Preview",
+    };
+  }
+  if (recommended === active.length) {
+    return {
+      level: "Ready for Apply Preview",
+      color: "#9ce5b3",
+      count: `${recommended}/${active.length} active recommended`,
+      detail: "Every active EQ suggestion is both High confidence and Robust",
+    };
+  }
+  const seatTune = active.filter((item) => item.recommendation === "Seat tune").length;
+  const review = active.filter((item) => item.recommendation === "Review").length;
+  const guarded = active.filter((item) => item.recommendation === "Guarded").length;
+  const reasons = [];
+  if (seatTune) reasons.push(`${seatTune} seat tune`);
+  if (review) reasons.push(`${review} review`);
+  if (guarded) reasons.push(`${guarded} guarded`);
+  return {
+    level: "Review active set",
+    color: "#f1ce78",
+    count: `${recommended}/${active.length} active recommended`,
+    detail: `Active set also contains ${reasons.join(" and ") || "a non-recommended filter"}`,
+  };
+};
+
+if (ResponseElement && !ResponseElement.prototype.__kccRecommendedSetReadiness0639) {
   const proto = ResponseElement.prototype;
-  proto.__kccRecommendationExplanation0638 = true;
+  proto.__kccRecommendedSetReadiness0639 = true;
 
   const baseInjectMultiPosition = proto.injectMultiPosition;
 
@@ -167,7 +201,7 @@ if (ResponseElement && !ResponseElement.prototype.__kccRecommendationExplanation
     const notes = [...card.querySelectorAll(".muted-copy")];
     const note = notes.at(-1);
     if (note) {
-      note.textContent = "Multi-Position contributes advisory Confidence, Robustness and Consensus Recommendation evidence in v0.6.38. Tap a recommendation badge to see its evidence. Nothing here changes Guards, filter On/Off, Prediction, Apply Preview or SoundLab EQ.";
+      note.textContent = "Multi-Position contributes advisory Confidence, Robustness, Recommendation and active-set readiness evidence in v0.6.39. Tap a recommendation badge to see its evidence. Nothing here changes Guards, filter On/Off, Prediction, Apply Preview or SoundLab EQ.";
     }
     return result;
   };
@@ -204,6 +238,7 @@ if (ResponseElement && !ResponseElement.prototype.__kccRecommendationExplanation
         score,
         robustness: robustness.level,
         recommendation: recommendation.level,
+        active: Boolean(item.row.querySelector("[data-assistant-toggle]")?.checked),
       });
       const badge = item.row.querySelector("[data-eq-confidence]");
       if (!badge) continue;
@@ -321,11 +356,12 @@ if (ResponseElement && !ResponseElement.prototype.__kccRecommendationExplanation
     const seatTune = results.filter((item) => item.recommendation === "Seat tune").length;
     const recommendationReview = results.filter((item) => item.recommendation === "Review").length;
     const recommendationGuarded = results.filter((item) => item.recommendation === "Guarded").length;
+    const readiness = readinessFor(results);
     const measurementCount = (this.repeatabilityRepeats || []).length + 1;
     const positionCount = (this.multiPositionContext?.().others?.length || 0) + 1;
     const evidence = [];
     if (repeatComparisons.length) evidence.push(`${measurementCount} same-position measurements`);
     if (positionComparisons.length) evidence.push(`${positionCount} listening positions`);
-    summary.innerHTML = `<b style="color:#69b2ff">EQ ASSISTANT CONFIDENCE</b> · <span style="color:#78d39a">${high} high</span> · <span style="color:#e2be67">${review} review</span> · <span style="color:#ef9a9a">${avoid} avoid</span><br><span style="color:#8195a4">Quality weighs smoothing${evidence.length ? `, ${safe(evidence.join(" and "))}` : ""}. Cross-position evidence is advisory; Crossover Guard and Null / Boost Guard remain the only automatic blocks.</span><br><b style="color:#9dc8ea">POSITION ROBUSTNESS</b> · <span style="color:#78d39a">${robust} robust</span> · <span style="color:#9dc8ea">${seatSpecific} seat-specific</span> · <span style="color:#e2be67">${unstable} unstable</span> · <span style="color:#ef9a9a">${guarded} guarded</span>${needEvidence ? ` · <span style="color:#8195a4">${needEvidence} need evidence</span>` : ""}<br><b style="color:#b4dcf5">CONSENSUS RECOMMENDATION</b> · <span style="color:#9ce5b3">${recommended} recommended</span> · <span style="color:#b4dcf5">${seatTune} seat tune</span> · <span style="color:#f1ce78">${recommendationReview} review</span> · <span style="color:#ffb0b0">${recommendationGuarded} guarded</span><br><span style="color:#8195a4">Recommendation combines Confidence and Robustness as guidance only. Tap a recommendation badge to see why; it never changes filter On/Off or Apply eligibility.</span>`;
+    summary.innerHTML = `<b style="color:#69b2ff">EQ ASSISTANT CONFIDENCE</b> · <span style="color:#78d39a">${high} high</span> · <span style="color:#e2be67">${review} review</span> · <span style="color:#ef9a9a">${avoid} avoid</span><br><span style="color:#8195a4">Quality weighs smoothing${evidence.length ? `, ${safe(evidence.join(" and "))}` : ""}. Cross-position evidence is advisory; Crossover Guard and Null / Boost Guard remain the only automatic blocks.</span><br><b style="color:#9dc8ea">POSITION ROBUSTNESS</b> · <span style="color:#78d39a">${robust} robust</span> · <span style="color:#9dc8ea">${seatSpecific} seat-specific</span> · <span style="color:#e2be67">${unstable} unstable</span> · <span style="color:#ef9a9a">${guarded} guarded</span>${needEvidence ? ` · <span style="color:#8195a4">${needEvidence} need evidence</span>` : ""}<br><b style="color:#b4dcf5">CONSENSUS RECOMMENDATION</b> · <span style="color:#9ce5b3">${recommended} recommended</span> · <span style="color:#b4dcf5">${seatTune} seat tune</span> · <span style="color:#f1ce78">${recommendationReview} review</span> · <span style="color:#ffb0b0">${recommendationGuarded} guarded</span><br><span style="color:#8195a4">Recommendation combines Confidence and Robustness as guidance only. Tap a recommendation badge to see why; it never changes filter On/Off or Apply eligibility.</span><br><b style="color:#d2e4ef">ACTIVE SET READINESS</b> · <span style="color:${readiness.color}">${safe(readiness.level)}</span> · <span style="color:#9fb0bc">${safe(readiness.count)}</span><br><span style="color:#8195a4">${safe(readiness.detail)}. Readiness is advisory and does not bypass Apply Preview, free-slot, snapshot or Restore safeguards.</span>`;
   };
 }
