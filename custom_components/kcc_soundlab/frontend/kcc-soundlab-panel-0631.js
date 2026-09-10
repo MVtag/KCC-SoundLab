@@ -152,9 +152,9 @@ const recommendationPalette = (level) => {
   return { border: "#6b5424", background: "#302611", color: "#f1ce78" };
 };
 
-if (ResponseElement && !ResponseElement.prototype.__kccConsensusRecommendation0637) {
+if (ResponseElement && !ResponseElement.prototype.__kccRecommendationExplanation0638) {
   const proto = ResponseElement.prototype;
-  proto.__kccConsensusRecommendation0637 = true;
+  proto.__kccRecommendationExplanation0638 = true;
 
   const baseInjectMultiPosition = proto.injectMultiPosition;
 
@@ -167,7 +167,7 @@ if (ResponseElement && !ResponseElement.prototype.__kccConsensusRecommendation06
     const notes = [...card.querySelectorAll(".muted-copy")];
     const note = notes.at(-1);
     if (note) {
-      note.textContent = "Multi-Position contributes advisory Confidence, Robustness and Consensus Recommendation evidence in v0.6.37. It never changes Guards, filter On/Off, Prediction, Apply Preview or SoundLab EQ.";
+      note.textContent = "Multi-Position contributes advisory Confidence, Robustness and Consensus Recommendation evidence in v0.6.38. Tap a recommendation badge to see its evidence. Nothing here changes Guards, filter On/Off, Prediction, Apply Preview or SoundLab EQ.";
     }
     return result;
   };
@@ -263,10 +263,48 @@ if (ResponseElement && !ResponseElement.prototype.__kccConsensusRecommendation06
       }
       const recommendationColors = recommendationPalette(recommendation.level);
       recommendationBadge.textContent = recommendation.level;
-      recommendationBadge.title = `Consensus recommendation · ${recommendation.detail}`;
+      recommendationBadge.title = `Consensus recommendation · ${recommendation.detail} · Activate for evidence details`;
+      recommendationBadge.setAttribute("role", "button");
+      recommendationBadge.setAttribute("tabindex", "0");
+      recommendationBadge.setAttribute("aria-label", `${recommendation.level}: ${recommendation.detail}. Activate for evidence details.`);
       recommendationBadge.style.borderColor = recommendationColors.border;
       recommendationBadge.style.background = recommendationColors.background;
       recommendationBadge.style.color = recommendationColors.color;
+      recommendationBadge.style.cursor = "pointer";
+      recommendationBadge.style.userSelect = "none";
+
+      let recommendationDetail = item.row.querySelector("[data-eq-recommendation-detail]");
+      if (!recommendationDetail) {
+        recommendationDetail = document.createElement("div");
+        recommendationDetail.dataset.eqRecommendationDetail = "true";
+        recommendationDetail.hidden = true;
+        recommendationDetail.style.marginTop = "6px";
+        recommendationDetail.style.maxWidth = "360px";
+        recommendationDetail.style.color = "#9fb0bc";
+        recommendationDetail.style.fontSize = "9px";
+        recommendationDetail.style.lineHeight = "1.4";
+        recommendationBadge.insertAdjacentElement("afterend", recommendationDetail);
+
+        const toggleRecommendationDetail = (event) => {
+          event.stopPropagation();
+          const detail = item.row.querySelector("[data-eq-recommendation-detail]");
+          if (!detail) return;
+          detail.hidden = !detail.hidden;
+          recommendationBadge.setAttribute("aria-expanded", String(!detail.hidden));
+        };
+        recommendationBadge.addEventListener("click", toggleRecommendationDetail);
+        recommendationBadge.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          toggleRecommendationDetail(event);
+        });
+      }
+
+      const confidenceDetail = level === "Avoid"
+        ? "Confidence: Avoid (guarded)"
+        : `Confidence: ${level} ${score}/100`;
+      recommendationBadge.setAttribute("aria-expanded", String(!recommendationDetail.hidden));
+      recommendationDetail.textContent = `${recommendation.level} — ${recommendation.detail}. ${confidenceDetail}. Robustness: ${robustness.level} — ${robustness.detail}.`;
     }
 
     const summary = this.querySelector("[data-eq-confidence-summary]");
@@ -288,6 +326,6 @@ if (ResponseElement && !ResponseElement.prototype.__kccConsensusRecommendation06
     const evidence = [];
     if (repeatComparisons.length) evidence.push(`${measurementCount} same-position measurements`);
     if (positionComparisons.length) evidence.push(`${positionCount} listening positions`);
-    summary.innerHTML = `<b style="color:#69b2ff">EQ ASSISTANT CONFIDENCE</b> · <span style="color:#78d39a">${high} high</span> · <span style="color:#e2be67">${review} review</span> · <span style="color:#ef9a9a">${avoid} avoid</span><br><span style="color:#8195a4">Quality weighs smoothing${evidence.length ? `, ${safe(evidence.join(" and "))}` : ""}. Cross-position evidence is advisory; Crossover Guard and Null / Boost Guard remain the only automatic blocks.</span><br><b style="color:#9dc8ea">POSITION ROBUSTNESS</b> · <span style="color:#78d39a">${robust} robust</span> · <span style="color:#9dc8ea">${seatSpecific} seat-specific</span> · <span style="color:#e2be67">${unstable} unstable</span> · <span style="color:#ef9a9a">${guarded} guarded</span>${needEvidence ? ` · <span style="color:#8195a4">${needEvidence} need evidence</span>` : ""}<br><b style="color:#b4dcf5">CONSENSUS RECOMMENDATION</b> · <span style="color:#9ce5b3">${recommended} recommended</span> · <span style="color:#b4dcf5">${seatTune} seat tune</span> · <span style="color:#f1ce78">${recommendationReview} review</span> · <span style="color:#ffb0b0">${recommendationGuarded} guarded</span><br><span style="color:#8195a4">Recommendation combines Confidence and Robustness as guidance only. It never changes filter On/Off or Apply eligibility.</span>`;
+    summary.innerHTML = `<b style="color:#69b2ff">EQ ASSISTANT CONFIDENCE</b> · <span style="color:#78d39a">${high} high</span> · <span style="color:#e2be67">${review} review</span> · <span style="color:#ef9a9a">${avoid} avoid</span><br><span style="color:#8195a4">Quality weighs smoothing${evidence.length ? `, ${safe(evidence.join(" and "))}` : ""}. Cross-position evidence is advisory; Crossover Guard and Null / Boost Guard remain the only automatic blocks.</span><br><b style="color:#9dc8ea">POSITION ROBUSTNESS</b> · <span style="color:#78d39a">${robust} robust</span> · <span style="color:#9dc8ea">${seatSpecific} seat-specific</span> · <span style="color:#e2be67">${unstable} unstable</span> · <span style="color:#ef9a9a">${guarded} guarded</span>${needEvidence ? ` · <span style="color:#8195a4">${needEvidence} need evidence</span>` : ""}<br><b style="color:#b4dcf5">CONSENSUS RECOMMENDATION</b> · <span style="color:#9ce5b3">${recommended} recommended</span> · <span style="color:#b4dcf5">${seatTune} seat tune</span> · <span style="color:#f1ce78">${recommendationReview} review</span> · <span style="color:#ffb0b0">${recommendationGuarded} guarded</span><br><span style="color:#8195a4">Recommendation combines Confidence and Robustness as guidance only. Tap a recommendation badge to see why; it never changes filter On/Off or Apply eligibility.</span>`;
   };
 }
